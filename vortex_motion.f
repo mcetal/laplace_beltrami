@@ -144,9 +144,10 @@ c Time loop for vortex path
          ntime =  1
          do it = 1, ntime
             time = it*dt  
-            call PRIN2 (' time = *', time, 1)       
+            call PRIN2 (' TIME = *', time, 1)       
 c
 c Construct the RHS and solve
+         call PRINI (6,13)
          call GETRHS (k, nd, nbk, cx, cy, cz, zeta_k, zeta, rhs,
      1                nvort, vort_k, zk_vort, gamma_tot)
 ccc         call PRIN2 (' rhs = *', rhs, nbk)
@@ -162,15 +163,17 @@ ccc         if (mod(it,100).eq.0) then
          call SOL_GRID_FMM (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
      1                      zeta, dzeta, igrid, zeta_gr, u_gr,
      2                      x_zeta, y_zeta, qa, cfield, poten, nsp, 
-     3                      wksp, nvort, vort_k, zk_vort)
+     3                      wksp, nvort, vort_k, zk_vort, gamma_tot)
          call SOL_TAR_FMM (nd, k, nbk, ntar, density, A_k, zeta_k,   
      1                     x_zeta, y_zeta, zeta, dzeta, zeta_tar, u_tar,
      2                     xz_tar, yz_tar, qa, cfield, poten, nsp, 
-     3                     wksp, nvort, vort_k, zk_vort)
+     3                     wksp, nvort, vort_k, zk_vort, gamma_tot)
 c
 c for a vortex in presence of cap with radius r0, check solution
 ccc         call SOL_VORT_CHECK (nd, k, nbk, nth, nphi, nvort, zeta_gr,  
 ccc     1                        igrid, u_gr, uex_gr, zk_vort, r0)
+         call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
+     1                         u_tar, nvort, vort_k, zk_vort, r0)
             call DUMP_MOVIE_ALL (nth, nphi, time, u_gr, it, 37)
             call DUMP_MOVIE_VORT (nth, nphi, time, zk_vort(1), u_gr, 
      1                            it, 37)
@@ -233,6 +236,7 @@ c
          eye = dcmplx(0.d0,1.d0)
 c
          open (unit = 12, file = 'input.data')
+         call PRINI (6,13)
 c
          read (12,*) k, nd, nvort
          nbk = k*nd
@@ -270,7 +274,7 @@ c a fudge for pole
 ccc         call SPH2CART (0.d0, 1.4d0, 1.d0, cx(1), cy(1), cz(1))
          eps = 1.d-6
          do kbod = 1, k
-            check = dabs(cz(kbod)-eps)
+            check = dabs(cz(kbod)-1.d0)
 c
 c be careful if one of the hole centres is at the north pole
 c if it is, nudge it a little
@@ -707,17 +711,11 @@ c
             xddot = dreal(d2zeta)
             yddot = dimag(d2zeta)
             rkappa = (xdot*yddot-ydot*xddot)/ds**3
-            call prin2 (' rkappa = *', rkappa, 1)
             zextra = dzeta(i)*dconjg(zeta(i))/(1.d0+cdabs(zeta(i))**2)
             zextra = zextra/(2.d0*pi)
             diag(i) = 0.25d0*rkappa*ds/pi - dimag(zextra)
 ccc            diag(i) = 0.25d0*rkappa*ds/pi 
          end do
-         call prin2 (' zeta 1 = *', zeta, 2*nd)
-         call prin2 (' zeta 2 = *', zeta(1+nd), 2*nd)
-         call prin2 (' dzeta 1 = *', dzeta, 2*nd)
-         call prin2 (' dzeta 2 = *', dzeta(1+nd), 2*nd)
-         call prin2 (' diag = *', diag, nbk)
          do ivort = 1, nvort
             zk_vort(ivort) = (x1_vort(ivort) + eye*x2_vort(ivort))/
      1                       (1.d0 - x3_vort(ivort))
@@ -789,7 +787,7 @@ c
          arg = 2.d0*dreal(zdis*conjg(zdis)/((1.d0+az1)*(1.d0+az2)))
          psi = -dlog(arg)/(4.d0*pi)
 c
-      stop
+      return
       end
 c
 c
@@ -809,6 +807,9 @@ c
          eye = dcmplx(0.d0,1.d0)
 c
          A = -gamma_tot
+         call PRIN2 (' in GETRHS, zk_vort = *', zk_vort, 2*k)
+         call PRIN2 ('            vort_k = *', vort_k, k)
+         call PRIN2 ('            gamma_tot = *', gamma_tot, 1)
          istart = 0
          do kbod = 1, k
             do j = 1, nd
@@ -819,7 +820,7 @@ c
      1                               psi)
                   psi_vort = psi_vort + vort_k(ivort)*psi
                end do
-               rhs(istart+j) = psi - psi_vort - A*circ
+               rhs(istart+j) =  - psi_vort - A*circ
             end do
             istart = istart+nd
          end do
@@ -1509,10 +1510,10 @@ c  unpack soln into U and A_k
             end do
             A_k(1) = 0.d0
 ccc            call PRIn2 (' density = *', u, nbk)
-            do kbod = 1, k
-               call PRINF (' kbod = *', kbod, 1)
-               call PRIn2 ('     u = *', u((kbod-1)*nd+1), nd)
-            end do 
+ccc            do kbod = 1, k
+ccc               call PRINF (' kbod = *', kbod, 1)
+ccc               call PRIn2 ('     u = *', u((kbod-1)*nd+1), nd)
+ccc            end do 
             call PRIN2 (' A_k = *', A_k, k)
          end if
 c
@@ -1665,7 +1666,7 @@ c---------------
       subroutine SOL_GRID_FMM (nd, k, nbk, nth, nphi, u, A_k, zeta_k,   
      1                         zeta, dzeta, igrid, zeta_gr, u_gr,
      2                         x_zeta, y_zeta, qa, cfield, poten, nsp, 
-     3                         wksp, nvort, vort_k, zk_vort)
+     3                         wksp, nvort, vort_k, zk_vort, gamma_tot)
 c---------------
 c
       implicit real*8 (a-h,o-z)
@@ -1681,6 +1682,12 @@ c
          pi = 4.d0*datan(1.d0)
          eye = dcmplx(0.d0, 1.d0)
          dalph = 2.d0*pi/nd
+         A = -gamma_tot
+c
+         call prin2 (' in sol_grid_fmm, vort_k = *', vort_k, k)
+         call prin2 ('                  zk_vort = *',zk_vort, 2*k)
+         call prin2 ('                  gamma_tot = *', gamma_tot, 1)
+         call prin2 ('                 zeta_k = *', zeta_k, 2*k)
 c
 c pack zeta and zeta_gr into x_zeta and y_zeta
          do i = 1, nbk
@@ -1746,14 +1753,15 @@ c Fix up field
                if (igrid(i,j).ne.0) then     
                   ij = ij + 1           
                   u_gr(i,j) = dimag(cfield(ij) - zQsum)
-                  do kbod = 1, k
-ccc                  do kbod = 1, 1
-                     zdis = zeta_gr(i,j) - zeta_k(kbod)
-                     rad = 2.d0*
-     1              (cdabs(zdis))**2/((1+(cdabs(zeta_gr(i,j)))**2)
-     2                  *((1+(cdabs(zeta_k(kbod)))**2)))
-                     u_gr(i,j) = u_gr(i,j) + A_k(kbod)*0.5d0*dlog(rad)
+                  psi_vort = 0.d0
+                  call POINT_VORTEX (zeta_gr(i,j), zeta_k(1), circ)
+                  do ivort = 1, nvort
+                     call POINT_VORTEX (zeta_gr(i,j), zk_vort(ivort), 
+     1                                  psi)
+                     psi_vort = psi_vort + vort_k(ivort)*psi
                   end do
+                  u_gr(i,j) = u_gr(i,j) + psi_vort + A*circ
+ccc                  u_gr(i,j) = psi_vort + A*circ
                   umax = max(umax,u_gr(i,j))
                   umin = min(umin,u_gr(i,j))
                  else
@@ -1763,28 +1771,6 @@ ccc                  do kbod = 1, 1
          end do
          call PRIN2 (' Max solution = *', umax, 1)
          call PRIN2 (' Min solution = *', umin, 1)
-c
-c Add in vortex singularities
-ccc         call PRIN2 (' zk_vort = *', zk_vort, 2*nvort)
-         call PRIN2 (' vort_k = *', vort_k, nvort)
-         do i = 1, nth
-            do j = 1, nphi
-cccccc               u_gr(i,j) = 0.d0
-               if (igrid(i,j).ne.0) then   
-                  psi = 0.d0  
-                  do ivort = 1, nvort
-                     zdis = zeta_gr(i,j) - zk_vort(ivort)
-                     az1 = (cdabs(zeta_gr(i,j)))**2
-                     az2 = (cdabs(zk_vort(ivort)))**2
-                     arg = dreal(zdis*conjg(zdis)
-     1                        /((1.d0+az1)*(1.d0+az2)))
-                     psi = psi + vort_k(ivort)*dlog(arg)
-                  end do
-cccccc                  call PRIN2 (' psi = *', psi, 1)
-                  u_gr(i,j) = u_gr(i,j) - psi
-               end if
-            end do
-         end do
 c
          tend = etime(timep)
 ccc         call PRIN2 (' poten = *', poten, n)
@@ -1799,7 +1785,8 @@ c---------------
       subroutine SOL_TAR_FMM (nd, k, nbk, ntar, u, A_k, zeta_k,   
      1                        x_zeta, y_zeta, zeta, dzeta, zeta_tar, 
      2                        u_tar, xz_tar, yz_tar, qa, cfield, poten,  
-     3                        nsp, wksp, nvort, vort_k, zk_vort)
+     3                        nsp, wksp, nvort, vort_k, zk_vort, 
+     4                        gamma_tot)
 c---------------
 c
       implicit real*8 (a-h,o-z)
@@ -1815,6 +1802,7 @@ c
          pi = 4.d0*datan(1.d0)
          eye = dcmplx(0.d0, 1.d0)
          dalph = 2.d0*pi/nd
+         A = -gamma_tot
 c
 c pack zeta and zeta_gr into x_zeta and y_zeta
          do i = 1, nbk
@@ -1872,30 +1860,13 @@ c Fix up field
             ij = ij + 1           
             u_tar(i) = dimag(cfield(ij) - zQsum)
             ztar = dcmplx(xz_tar(i),yz_tar(i))
-            do kbod = 1, k
-               zdis = ztar - zeta_k(kbod)
-                     rad = 
-     1              (cdabs(zdis))**2/((1+(cdabs(ztar))**2)
-     2                  *((1+(cdabs(zeta_k(kbod)))**2)))
-                     u_tar(i) = u_tar(i) + A_k(kbod)*dlog(rad)
-            end do
-         end do
-c
-c Add in vortex singularities
-ccc         call PRIN2 (' zk_vort = *', zk_vort, 2*nvort)
-ccc         call PRIN2 (' vort_k = *', vort_k, nvort)
-         do i = 1, ntar
-            psi = 0.d0  
-            ztar = dcmplx(xz_tar(i),yz_tar(i))
+            call POINT_VORTEX (ztar, zeta_k(1), circ)
+            psi_vort = 0.d0
             do ivort = 1, nvort
-               zdis = ztar - zk_vort(ivort)
-               az1 = (cdabs(ztar))**2
-               az2 = (cdabs(zk_vort(ivort)))**2
-               arg = dreal(zdis*conjg(zdis)
-     1                        /((1.d0+az1)*(1.d0+az2)))
-               psi = psi + vort_k(ivort)*dlog(arg)
-               u_tar(i) = u_tar(i) - psi
+               call POINT_VORTEX (ztar, zk_vort(ivort), psi)
+               psi_vort = psi_vort + vort_k(ivort)*psi
             end do
+            u_tar(i) = u_tar(i) + psi_vort + A*circ
          end do
 ccc         call prin2 (' u_tar = *', u_tar, ntar)
 c
@@ -2028,12 +1999,13 @@ c
 c
 c---------------
       subroutine CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
-     1                            u_tar)
+     1                            u_tar, nvort, vort_k, zk_vort, r0)
 c---------------
 c
       implicit real*8 (a-h,o-z)
-      dimension u_tar(ntar)
-      complex*16 zeta_tar(ntar), zkern, zeta_k(k), zdis, eye
+      dimension u_tar(ntar), vort_k(nvort)
+      complex*16 zeta_tar(ntar), zkern, zeta_k(k), zdis, eye,
+     1           zk_vort(nvort), z, zeta_vort, zet
 c
          pi = 4.d0*datan(1.d0)
          eye = dcmplx(0.d0, 1.d0)
@@ -2049,13 +2021,13 @@ ccc         zeta_k(1) = dcmplx(-10.d0,-10.d0)
          err = 0.d0
          do i = 1, ntar
             u_ex = 0.d0
-            do mbod = 1, k
-               u_ex = u_ex + dreal(1.d0/(zeta_tar(i)-zeta_k(mbod)) 
-     1                + dconjg(1.d0/(zeta_tar(i)-zeta_k(mbod))))
-            end do
-            umax = max(umax, dabs(u_ex))
-ccc               u_ex = u_ex + 66.d0 
+            z = zeta_tar(i)
+            zeta_vort = eye*(r0-zk_vort(1))/(r0+zk_vort(1))
+            zet = eye*(r0-z)/(r0+z)
+            arg = cdabs((zet-zeta_vort)/(zet-dconjg(zeta_vort)))
+            u_ex = -vort_k(1)*dlog(arg)/(2.d0*pi)
             err = max(err,dabs(u_ex-u_tar(i)))
+            umax = max(umax,u_ex)
             call PRIN2 ('### u_ex = *', u_ex, 1)
             call PRIN2 ('    u_tar  = *', u_tar(i), 1)
          end do
