@@ -80,7 +80,7 @@ c Other arrays
 c
 c common blocks
       common /geometry/ x_zeta, y_zeta, zeta, dzeta, dsda
-      common /inteqn/ diag_stereo, cx, cy, cz
+      common /inteqn/ diag_stereo, cx, cy, cz, zeta_k
       common /sys_size/ k, nd, nbk
       common /fasblk2/ schur,wb,ipvtbf
       common /sphere_int/ xs, ys, zs, xn, yn, zn, diag
@@ -107,7 +107,7 @@ c
 c Read hole geometry data
          call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                   th_k, phi_k, nvort, x1_vort, x2_vort, x3_vort,
-     2                   vort_k, gamma_tot, r0)
+     2                   vort_k, gamma_tot, r0, zeta_k)
          call DCFFTI (nd, wsave)
 c
 c Construct hole geometry and grid on surface of sphere
@@ -150,21 +150,8 @@ c Construct the RHS and solve
          call GETRHS (k, nd, nbk, cx, cy, cz, zeta_k, zeta, rhs,
      1                nvort, vort_k, zk_vort, gamma_tot)
 ccc         call PRIN2 (' rhs = *', rhs, nbk)
-c
-c Construct system matrices to be dumped into matlab
-         write (6,*) 'here am i'
-ccc         call BUILD_MAT_STEREO ()
          call SOLVE (nd, k, kmax, nbk, rhs, soln, density, A_k, gmwork, 
-     1               lrwork, igwork, liwork, dsda, maxl, schur, wb,
-     2               ipvtbf, zeta, zeta_k)
-ccc         call BUILD_MAT_SPHERE (k, nd, nbk, xs, ys, zs, xn, yn, zn,
-ccc     1                          dsda, diag, cx, cy, cz, asphere)
-ccc         call BUILD_MAT_STEREO (k, nd, nbk, x_zeta, y_zeta, zeta,     
-ccc     1                          dzeta, zeta_k, diag_stereo, astereo)
-cccc
-cccc Overresolve the data on the boundary (for plotting purposes only)
-ccc         call RESAMPLE (nd,k,nbk,nsamp,h,z,dz,xat,yat,u,xsamp,
-ccc     *                  ysamp,zwork,ncwork)
+     1               lrwork, igwork, liwork, maxl, dzeta)
 c
 c Construct solution on surface grid
 ccc         call SOL_GRID (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
@@ -236,11 +223,14 @@ c********1*********2*********3*********4*********5*********6*********7**
 c
       subroutine READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
-     2                      x3_vort, vort_k, gamma_tot, r0)
+     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k)
 c---------------
       implicit real*8 (a-h,o-z)
       dimension ak(*), bk(*), cx(*), cy(*), cz(*), th_k(*), phi_k(*)
       dimension x1_vort(*), x2_vort(*), x3_vort(*), vort_k(*)
+      complex*16 zeta_k(*), eye
+c
+         eye = dcmplx(0.d0,1.d0)
 c
          open (unit = 12, file = 'input.data')
 c
@@ -275,6 +265,32 @@ c
          call PRIN2 ('    x3_vort = *', x3_vort, nvort)
          r0 = ak(1)/(1.d0-dsqrt(1.d0-(ak(1))**2))
          call PRIN2 (' r0 = *', r0, 1)
+c
+c a fudge for pole
+ccc         call SPH2CART (0.d0, 1.4d0, 1.d0, cx(1), cy(1), cz(1))
+         eps = 1.d-6
+         do kbod = 1, k
+            check = dabs(cz(kbod)-eps)
+c
+c be careful if one of the hole centres is at the north pole
+c if it is, nudge it a little
+            if (check.lt.eps) then
+               cz_s = 0.99d0
+               cx_s = dsqrt(0.5d0*(1-cz_s**2))
+               cy_s = cx_s
+               zeta_k(kbod) = (cx_x + eye*cy_s)/(1.d0-cz_s)
+               write (6,*) 'Fudging hole centre a little'
+               call prin2 (' old centre, cx = *', cx(kbod), 1)
+               call prin2 (' old centre, cy = *', cy(kbod), 1)
+               call prin2 (' old centre, cz = *', cz(kbod), 1)
+               call prin2 (' new centre, cx = *', cx_s, 1)
+               call prin2 (' new centre, cy = *', cy_s, 1)
+               call prin2 (' new centre, cz = *', cz_s, 1)
+            else
+               zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
+            end if
+         end do
+         call PRIN2 (' zeta_k = *', zeta_k, 2*k)
 c
          close(12)
 c
@@ -757,58 +773,56 @@ c
 c
 c********1*********2*********3*********4*********5*********6*********7**
 c
+      subroutine POINT_VORTEX (zeta,zeta_k, psi)
+c---------------
+c  evaluates G(zeta,zeta_k) from paper (i.e. Green's function in 
+c  complex plane)
+c
+      implicit real*8 (a-h,o-z) 
+      complex*16 zeta, zeta_k, zdis 
+c   
+         pi = 4.d0*datan(1.d0)
+c
+         zdis = zeta - zeta_k
+         az1 = (cdabs(zeta))**2
+         az2 = (cdabs(zeta_k))**2
+         arg = 2.d0*dreal(zdis*conjg(zdis)/((1.d0+az1)*(1.d0+az2)))
+         psi = -dlog(arg)/(4.d0*pi)
+c
+      stop
+      end
+c
+c
+c********1*********2*********3*********4*********5*********6*********7**
+c
       subroutine GETRHS (k, nd, nbk, cx, cy, cz, zeta_k, zeta, rhs,
      1                   nvort, vort_k, zk_vort, gamma_tot)
 c---------------
+c represent psi = psi^* + sum vortices + A G(zeta,zeta_k(1))
+c boundary conditions for psi^* are 
+c    psi^* = -sum vortices - A G(zeta,zeta_k(1))
       implicit real*8 (a-h,o-z)
       dimension cx(k), cy(k), cz(k), rhs(nbk), xs(nbk), ys(nbk), 
      1          zs(nbk), vort_k(nvort)
-      complex*16 zeta_k(k), eye, zeta(nbk), zk_vort(nvort), zdis
+      complex*16 zeta_k(k), eye, zeta(nbk), zk_vort(nvort)
 c
          eye = dcmplx(0.d0,1.d0)
 c
-c a fudge for pole
-ccc         call SPH2CART (0.d0, 1.4d0, 1.d0, cx(1), cy(1), cz(1))
-         do kbod = 1, k
-            zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
-         end do
-ccc         zeta_k(1) = dcmplx(-10.d0,-10.d0)
-         call PRIN2 (' zeta_k = *', zeta_k, 2*k)
-c
+         A = -gamma_tot
          istart = 0
          do kbod = 1, k
             do j = 1, nd
-               psi = 0.d0
-               do mbod = 1, k
-                  psi = psi + 1.d0/(zeta(istart+j)-zeta_k(mbod)) 
-     1                   + dconjg(1.d0/(zeta(istart+j)-zeta_k(mbod)))
+               psi_vort = 0.d0
+               call POINT_VORTEX (zeta(istart+j), zeta_k(1), circ)
+               do ivort = 1, nvort
+                  call POINT_VORTEX (zeta(istart+j), zk_vort(ivort), 
+     1                               psi)
+                  psi_vort = psi_vort + vort_k(ivort)*psi
                end do
-ccc               do ivort = 1, nvort
-ccc                  zdis = zeta(istart+j) - zk_vort(ivort)
-ccc                  az1 = (cdabs(zeta(istart+j)))**2
-ccc                  az2 = (cdabs(zk_vort(ivort)))**2
-ccc                  arg = dreal(zdis*conjg(zdis)/((1.d0+az1)*(1.d0+az2)))
-ccc                  psi = psi + vort_k(ivort)*dlog(arg)
-ccc               end do
-               rhs(istart+j) = psi 
+               rhs(istart+j) = psi - psi_vort - A*circ
             end do
             istart = istart+nd
          end do
-         rhs(nbk+1) = gamma_tot
-         do kbod = 2, k
-            rhs(nbk+kbod) = 0.d0
-         end do
-         call PRIN2 (' rhs at end = *', rhs(nbk+1), k)
-ccc         rhs(nbk+k) = gamma_tot
-ccc         rhs(nbk+k) = -gamma_tot
-c
-c Dump it out
-         open (unit = 24, file = 'rhs.dat')
-         do i = 1, nbk+k
-               write(24,'(e20.13,$)')(rhs(i))
-               write (24,'(a)')  ''
-         end do
-         close (24) 
 c
       return
       end
@@ -1175,10 +1189,18 @@ c
          eye = DCMPLX(0.D0,1.D0)
          dalph = 2.d0*pi/nd
 c
-c Extract off A_k
+c Calculate A_k
+         istart = 0
          do kbod = 1, k
-            A_k(kbod) = u(nbk+kbod)
+            A_k(kbod) = 0.d0
+            do i = 1, nd
+               A_k(kbod) = A_k(kbod) 
+     1               - u(istart+i)*dimag(dzeta(istart+i))
+            end do
+            A_k(kbod) = A_k(kbod)*dalph/(2.d0*pi)
+            istart = istart+nd
          end do
+         A_k(1) = 0.d0
 c
          zQsum = 0.d0
          do i = 1, nbk
@@ -1214,42 +1236,20 @@ ccc         call PRINF (' Number of Levels used = *', inform(3), 1)
 ccc         call PRIN2 (' cfield = *', cfield, 2*nbk)
 c
 c Fix up field
-         do i = 1, nbk
-            zQ2sum = dalph*u(i)*dzeta(i)*dconjg(zeta(i))
-     1                   /(1.d0+cdabs(zeta(i))**2)
-            zQ2sum = - zQ2sum/(2.d0*pi)
-            cfield(i) = cfield(i) - zQsum + zQ2sum
-            w(i) = 0.5d0*u(i) + dimag(cfield(i)) - dalph*diag(i)*u(i)
-c
-c Add on log singularities
-            do kbod = 1, k
-ccc            do kbod = 1, 1
-               zdis = zeta(i) - zeta_k(kbod)
-ccc               rad = 4.d0*(cdabs(zdis))**2/((1+(cdabs(zeta(i)))**2)
-ccc     1                  *((1+(cdabs(zeta_k(kbod)))**2)))
-ccc               w(i) = w(i) + A_k(kbod)*0.5d0*dlog(rad)
-               rad = 2.d0*(cdabs(zdis))**2/((1+(cdabs(zeta(i)))**2)
-     1                  *((1+(cdabs(zeta_k(kbod)))**2)))
-               w(i) = w(i) + A_k(kbod)*0.5d0*dlog(rad)
-            end do
-         end do
-c
-c
-c Constraints for multiple log but with same-valued streamlines
-         w(nbk+1) = 0.d0
+         istart = 0
          do kbod = 1, k
-            w(nbk+1) = w(nbk+1) + A_k(kbod)
-         end do
-         do kbod = 2, k
-            w(nbk+kbod) = 0.d0
-            do i = (kbod-1)*nd+1, kbod*nd
-               w(nbk + kbod) = w(nbk + kbod) + u(i)
+            do i = 1, nd
+               zQ2sum = dalph*u(istart+i)*dzeta(istart+i)
+     1                   *dconjg(zeta(istart+i))
+     2                   /(1.d0+cdabs(zeta(istart+i))**2)
+               zQ2sum = - zQ2sum/(2.d0*pi)
+               cfield(istart+i) = cfield(istart+i) - zQsum + zQ2sum
+               w(istart+i) = 0.5d0*u(istart+i) + dimag(cfield(istart+i)) 
+     1                        - dalph*diag(istart+i)*u(istart+i)
+     2                        - A_k(kbod)
             end do
-         end do 
-         tend = etime(timep)
-ccc         call PRIN2 (' poten = *', poten, n)
-ccc         call PRIN2 (' TIME FOR FMM  = *',tend-tbeg,1)
-ccc         call PRIN2 (' cfield = *', cfield, 2*n)
+            istart = istart+nd
+         end do
 c
       return
       end
@@ -1428,8 +1428,7 @@ c
 c
 c---------------
       subroutine SOLVE (nd, k, kmax, nbk, rhs, soln, u, A_k, rwork, 
-     1                  lrwork, iwork, liwork, dsda, maxl, schur, bnew,
-     2                  ipvtbf, z, zk)
+     1                  lrwork, iwork, liwork, maxl, dzeta)
 c---------------
 c
       implicit real*8 (a-h,o-z)
@@ -1441,10 +1440,7 @@ c
 c  DGMRES work arrays
       dimension rwork(lrwork),iwork(liwork)
 c
-c  Pivots
-      dimension schur(kmax*kmax),bnew(kmax),ipvtbf(kmax)
-c
-      complex*16 z(nbk), zk(k)
+      complex*16 dzeta(nbk)
 c
 c  Timings
 c
@@ -1473,14 +1469,8 @@ c  Restart flag
 c  
          iwork(5) = 5      
 c
-c  factor preconditioner
-         t0 = etime(timep)
-         call SCHUR_FACTOR (z,ND,nbk,K,zk,SCHUR,bnew,IPVTBF)
-         t1 = etime(timep)
-         call prin2 (' time in preconditioner = *', t1-t0, 1)
-c
 c     provide initial guess soln
-         norder = nbk + k
+         norder = nbk
 ccc         norder = nbk
          do i=1,norder
             soln(i) = rhs(i)
@@ -1504,27 +1494,27 @@ c
             tsec = t1 - t0
             call PRIn2 (' time in solve = *', tsec, 1)
 c
-c  unpack soln into U
+c  unpack soln into U and A_k
             istart = 0
-            do i = 1, nbk
-               u(i) = soln(i)
-            end do  
+            dth = 2.d0*pi/nd
+            do kbod = 1, k
+               A_k(kbod) = 0.d0
+               do i = 1, nd
+                  u(istart+i) = soln(istart+i)
+                  A_k(kbod) = A_k(kbod) 
+     1               - u(istart+i)*dimag(dzeta(istart+i))
+               end do
+               A_k(kbod) = A_k(kbod)*dth/(2.d0*pi)
+               istart = istart+nd
+            end do
+            A_k(1) = 0.d0
 ccc            call PRIn2 (' density = *', u, nbk)
             do kbod = 1, k
                call PRINF (' kbod = *', kbod, 1)
                call PRIn2 ('     u = *', u((kbod-1)*nd+1), nd)
-               A_k(kbod) = soln(nbk+kbod)
             end do 
             call PRIN2 (' A_k = *', A_k, k)
          end if
-c
-c Dump it out
-         open (unit = 24, file = 'solution.dat')
-         do i = 1, nbk+k
-               write(24,'(e20.13,$)')(soln(i))
-               write (24,'(a)')  ''
-         end do
-         close (24) 
 c
       return
       end
@@ -2093,7 +2083,7 @@ c
       parameter (nsp = 20*nmax + 20*ng_max)
 c      
       common /geometry/ x_zeta, y_zeta, zeta, dzeta, dsda
-      common /inteqn/ diag, cx, cy, cz
+      common /inteqn/ diag, cx, cy, cz, zeta_k
       common /sys_size/ k, nd, nbk
       common /fasblk2/ schur,wb,ipvtbf
       dimension schur(kmax*kmax),wb(kmax),ipvtbf(kmax)
@@ -2102,9 +2092,6 @@ c
       complex*16 zeta(nmax), dzeta(nmax), zeta_k(kmax), eye
 c
          eye = dcmplx(0.d0,1.d0)
-         do kbod = 1, k
-            zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
-         end do
 c
          job = 0
          call SCHUR_APPLY (zeta,ND,nbk,K,zeta_k,r,z,JOB,
@@ -2325,7 +2312,7 @@ c
       parameter (nsp = 20*nmax + 20*ng_max)
 c      
       common /geometry/ x_zeta, y_zeta, zeta, dzeta, dsda
-      common /inteqn/ diag_stereo, cx, cy, cz
+      common /inteqn/ diag_stereo, cx, cy, cz, zeta_k
       common /sys_size/ k, nd, nbk
       common /sphere_int/ xs, ys, zs, xn, yn, zn, diag
 c
@@ -2351,11 +2338,6 @@ c
          t0 = etime(timep)
 c
          call PRINI (6,13)
-c  
-c Construct centres of holes in complex plane       
-         do kbod = 1, k
-            zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
-         end do
 ccc         zeta_k(1) = dcmplx(-10.d0,-10.d0)
 c
 ccc         call MATVEC_SPHERE (k, nd, nbk, xs, ys, zs, xn, yn, zn,
