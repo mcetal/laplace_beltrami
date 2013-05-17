@@ -126,9 +126,9 @@ c Construct grid on surface of sphere
      1                      th_k, phi_k, th_gr, phi_gr, x_gr, y_gr,
      2                      z_gr, zeta_gr, xzeta_gr, yzeta_gr, igrid,
      3                      alph_gr, xtar, ytar, ztar, ntar)
-         call TARGET_POINTS (k, nd, nbk, ak, bk, cx, cy, cz, 
-     1                      th_k, phi_k, xtar, ytar, ztar, ntar,
-     2                      xz_tar, yz_tar, zeta_tar)
+ccc         call TARGET_POINTS (k, nd, nbk, ak, bk, cx, cy, cz, 
+ccc     1                      th_k, phi_k, xtar, ytar, ztar, ntar,
+ccc     2                      xz_tar, yz_tar, zeta_tar)
             call DUMP (nth, nphi, u_gr, igrid, 0, 31)
             call DUMP (nth, nphi, alph_gr, igrid, 1, 51)
             call DUMP (nth, nphi, x_gr, igrid, 1, 32)
@@ -150,7 +150,7 @@ c Construct the RHS and solve
          call PRINI (6,13)
          call GETRHS (k, nd, nbk, cx, cy, cz, zeta_k, zeta, rhs,
      1                nvort, vort_k, zk_vort, gamma_tot)
-ccc         call PRIN2 (' rhs = *', rhs, nbk)
+         call PRIN2 (' rhs = *', rhs, nbk)
          call SOLVE (nd, k, kmax, nbk, rhs, soln, density, A_k, gmwork, 
      1               lrwork, igwork, liwork, maxl, dzeta)
 c
@@ -164,16 +164,16 @@ ccc         if (mod(it,100).eq.0) then
      1                      zeta, dzeta, igrid, zeta_gr, u_gr,
      2                      x_zeta, y_zeta, qa, cfield, poten, nsp, 
      3                      wksp, nvort, vort_k, zk_vort, gamma_tot)
-         call SOL_TAR_FMM (nd, k, nbk, ntar, density, A_k, zeta_k,   
-     1                     x_zeta, y_zeta, zeta, dzeta, zeta_tar, u_tar,
-     2                     xz_tar, yz_tar, qa, cfield, poten, nsp, 
-     3                     wksp, nvort, vort_k, zk_vort, gamma_tot)
+ccc         call SOL_TAR_FMM (nd, k, nbk, ntar, density, A_k, zeta_k,   
+ccc     1                     x_zeta, y_zeta, zeta, dzeta, zeta_tar, u_tar,
+ccc     2                     xz_tar, yz_tar, qa, cfield, poten, nsp, 
+ccc     3                     wksp, nvort, vort_k, zk_vort, gamma_tot)
 c
 c for a vortex in presence of cap with radius r0, check solution
 ccc         call SOL_VORT_CHECK (nd, k, nbk, nth, nphi, nvort, zeta_gr,  
 ccc     1                        igrid, u_gr, uex_gr, zk_vort, r0)
-         call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
-     1                         u_tar, nvort, vort_k, zk_vort, r0)
+ccc         call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
+ccc     1                         u_tar, nvort, vort_k, zk_vort, r0)
             call DUMP_MOVIE_ALL (nth, nphi, time, u_gr, it, 37)
             call DUMP_MOVIE_VORT (nth, nphi, time, zk_vort(1), u_gr, 
      1                            it, 37)
@@ -198,8 +198,8 @@ c
 c Check error in solution
 ccc         call CHECK_ERROR (nd, k, nbk, nth, nphi, zeta_k, igrid, 
 ccc     1                     zeta_gr, u_gr)
-         call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
-     1                         u_tar)
+ccc         call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
+ccc     1                         u_tar)
 c
 c dump out density
          pi = 4.d0*datan(1.d0)
@@ -1195,10 +1195,12 @@ c Calculate A_k
          do kbod = 1, k
             A_k(kbod) = 0.d0
             do i = 1, nd
-               A_k(kbod) = A_k(kbod) 
-     1               - u(istart+i)*dimag(dzeta(istart+i))
+ccc               A_k(kbod) = A_k(kbod) 
+ccc     1               - u(istart+i)*dimag(dzeta(istart+i))
+               A_k(kbod) = A_k(kbod) + u(istart+i)
             end do
-            A_k(kbod) = A_k(kbod)*dalph/(2.d0*pi)
+ccc            A_k(kbod) = A_k(kbod)*dalph/(2.d0*pi)
+            A_k(kbod) = A_k(kbod)*dalph
             istart = istart+nd
          end do
          A_k(1) = 0.d0
