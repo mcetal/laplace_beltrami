@@ -6,7 +6,7 @@ c  Computes the motion of point vortices in the presence of multiple
 c  islands
 c
 c  the problem is set up so that there is circulation around the island 
-c  at the north pole
+c  at the north pole, only
 c
 c
 c     ------------------------------------------------------------------
@@ -107,7 +107,7 @@ c
 c Read hole geometry data
          call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                   th_k, phi_k, nvort, x1_vort, x2_vort, x3_vort,
-     2                   vort_k, gamma_tot, r0, zeta_k)
+     2                   vort_k, gamma_tot, r0, zeta_k, dt, ntime)
          call DCFFTI (nd, wsave)
 c
 c Construct hole geometry and grid on surface of sphere
@@ -130,7 +130,6 @@ ccc         call TARGET_POINTS (k, nd, nbk, ak, bk, cx, cy, cz,
 ccc     1                      th_k, phi_k, xtar, ytar, ztar, ntar,
 ccc     2                      xz_tar, yz_tar, zeta_tar)
             call DUMP (nth, nphi, u_gr, igrid, 0, 31)
-            call DUMP (nth, nphi, alph_gr, igrid, 1, 51)
             call DUMP (nth, nphi, x_gr, igrid, 1, 32)
             call DUMP (nth, nphi, y_gr, igrid, 1, 33)
             call DUMP (nth, nphi, z_gr, igrid, 1, 34)
@@ -140,8 +139,8 @@ ccc         call PRIn2 (' diag_stereo = *', diag_stereo, nbk)
 c
 c Time loop for vortex path
          tbeg = etime(timep)
-         dt = 0.0001d0
-         ntime =  1
+ccc         dt = 0.0001d0
+ccc         ntime =  1
          do it = 1, ntime
             time = it*dt  
             call PRIN2 (' TIME = *', time, 1)       
@@ -150,7 +149,7 @@ c Construct the RHS and solve
          call PRINI (6,13)
          call GETRHS (k, nd, nbk, cx, cy, cz, zeta_k, zeta, rhs,
      1                nvort, vort_k, zk_vort, gamma_tot)
-         call PRIN2 (' rhs = *', rhs, nbk)
+ccc         call PRIN2 (' rhs = *', rhs, nbk)
          call SOLVE (nd, k, kmax, nbk, rhs, soln, density, A_k, gmwork, 
      1               lrwork, igwork, liwork, maxl, dzeta)
 c
@@ -160,10 +159,10 @@ ccc     1                  zeta, dzeta, igrid, zeta_gr, u_gr)
          nplot = mod(it,100)
          call PRINF (' nplot = *', nplot, 1)
 ccc         if (mod(it,100).eq.0) then
-         call SOL_GRID_FMM (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
-     1                      zeta, dzeta, igrid, zeta_gr, u_gr,
-     2                      x_zeta, y_zeta, qa, cfield, poten, nsp, 
-     3                      wksp, nvort, vort_k, zk_vort, gamma_tot)
+ccc         call SOL_GRID_FMM (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
+ccc     1                      zeta, dzeta, igrid, zeta_gr, u_gr,
+ccc     2                      x_zeta, y_zeta, qa, cfield, poten, nsp, 
+ccc     3                      wksp, nvort, vort_k, zk_vort, gamma_tot)
 ccc         call SOL_TAR_FMM (nd, k, nbk, ntar, density, A_k, zeta_k,   
 ccc     1                     x_zeta, y_zeta, zeta, dzeta, zeta_tar, u_tar,
 ccc     2                     xz_tar, yz_tar, qa, cfield, poten, nsp, 
@@ -174,20 +173,22 @@ ccc         call SOL_VORT_CHECK (nd, k, nbk, nth, nphi, nvort, zeta_gr,
 ccc     1                        igrid, u_gr, uex_gr, zk_vort, r0)
 ccc         call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
 ccc     1                         u_tar, nvort, vort_k, zk_vort, r0)
-            call DUMP_MOVIE_ALL (nth, nphi, time, u_gr, it, 37)
-            call DUMP_MOVIE_VORT (nth, nphi, time, zk_vort(1), u_gr, 
-     1                            it, 37)
+ccc            call DUMP_MOVIE_ALL (nth, nphi, time, u_gr, it, 37)
+ccc            call DUMP_MOVIE_VORT (nth, nphi, time, zk_vort(1), u_gr, 
+ccc     1                            it, 37)
 ccc          end if
 ccc            call DUMP (nth, nphi, uex_gr, igrid, 1, 38)
 c
 c Calculate velocity at a point
-ccc         call CALC_VEL (k, nd, nbk, nvort, density, A_k, zeta, dzeta, 
-ccc     1                  zeta_k, vort_k, zk_vort, zvel, zf, wsave)
-ccc         do ivort = 1, nvort
-ccc            zk_vort(ivort) = zk_vort(ivort) + dt*zvel(ivort)
-ccc         end do
+         call CALC_VEL (k, nd, nbk, nvort, density, gamma_tot, zeta,  
+     1                  dzeta, zeta_k, vort_k, zk_vort, zvel)
+         do ivort = 1, nvort
+            zk_vort(ivort) = zk_vort(ivort) + dt*zvel(ivort)
+         end do
          call PRIn2 (' zk_vort = *', zk_vort, 2*nvort)
-         call RSCPLOT (zk_vort, nvort, 1, 41)
+         if (mod(it,10).eq.0) then
+            call RSCPLOT (zk_vort, nvort, 1, 41)
+         end if
          end do
          tend = etime(timep)
          call PRIN2 (' TOTAL CPU TIME = *', tend-tbeg, 1)
@@ -226,7 +227,8 @@ c********1*********2*********3*********4*********5*********6*********7**
 c
       subroutine READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
-     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k)
+     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k, dt,
+     3                      ntime)
 c---------------
       implicit real*8 (a-h,o-z)
       dimension ak(*), bk(*), cx(*), cy(*), cz(*), th_k(*), phi_k(*)
@@ -235,12 +237,15 @@ c---------------
 c
          eye = dcmplx(0.d0,1.d0)
 c
-         open (unit = 12, file = 'input.data')
+         open (unit = 12, file = 'input_vort.data')
          call PRINI (6,13)
 c
          read (12,*) k, nd, nvort
+         read (12,*) dt, ntime
          nbk = k*nd
          call PRINF (' nbk = *', nbk, 1)
+         call PRINF (' Number of time steps = *', ntime, 1)
+         call PRIN2 (' dt = *', dt, 1)
          read(12,*) nth, nphi
          do kbod = 1, k
             read(12,*) ak(kbod), bk(kbod), th_k(kbod), phi_k(kbod)
@@ -771,7 +776,7 @@ c
 c
 c********1*********2*********3*********4*********5*********6*********7**
 c
-      subroutine POINT_VORTEX (zeta,zeta_k, psi)
+      subroutine POINT_VORTEX (zeta, zeta_k, psi)
 c---------------
 c  evaluates G(zeta,zeta_k) from paper (i.e. Green's function in 
 c  complex plane)
@@ -793,6 +798,27 @@ c
 c
 c********1*********2*********3*********4*********5*********6*********7**
 c
+      subroutine GRAD_POINT_VORTEX (zeta, zeta_k, zgrad)
+c---------------
+c  evaluates d G(zeta,zeta_k)/dz for velocity calculation 
+c
+      implicit real*8 (a-h,o-z) 
+      complex*16 zeta, zeta_k, zdis , zgrad
+c   
+         pi = 4.d0*datan(1.d0)
+c
+         zdis = zeta - zeta_k
+         dis = cdabs(zdis)
+         az1 = (cdabs(zeta))**2
+         zgrad = -1.d0/zdis + dconjg(zeta)/(1.d0+az1)
+         zgrad = zgrad/(4.d0*pi)
+c
+      return
+      end
+c
+c
+c********1*********2*********3*********4*********5*********6*********7**
+c
       subroutine GETRHS (k, nd, nbk, cx, cy, cz, zeta_k, zeta, rhs,
      1                   nvort, vort_k, zk_vort, gamma_tot)
 c---------------
@@ -807,9 +833,9 @@ c
          eye = dcmplx(0.d0,1.d0)
 c
          A = -gamma_tot
-         call PRIN2 (' in GETRHS, zk_vort = *', zk_vort, 2*k)
-         call PRIN2 ('            vort_k = *', vort_k, k)
-         call PRIN2 ('            gamma_tot = *', gamma_tot, 1)
+ccc         call PRIN2 (' in GETRHS, zk_vort = *', zk_vort, 2*k)
+ccc         call PRIN2 ('            vort_k = *', vort_k, k)
+ccc         call PRIN2 ('            gamma_tot = *', gamma_tot, 1)
          istart = 0
          do kbod = 1, k
             do j = 1, nd
@@ -1482,7 +1508,7 @@ c
          t0 = etime(timep)
          call DGMRES (norder, rhs, soln, nelt, ia, ja, a, isym,
      1               MATVEC_LAPL, MSOLVE, itol, tol, itmax, iter, err,  
-     1               ierr, 6, sb, sx, rwork, lrwork, iwork, 
+     1               ierr, 0, sb, sx, rwork, lrwork, iwork, 
      1               liwork, rw, iw)
          call Prin2 (' after laplace solve, err = *', err, 1)
          call PrinF (' after laplace solve, ierr = *', ierr, 1)
@@ -1686,10 +1712,10 @@ c
          dalph = 2.d0*pi/nd
          A = -gamma_tot
 c
-         call prin2 (' in sol_grid_fmm, vort_k = *', vort_k, k)
-         call prin2 ('                  zk_vort = *',zk_vort, 2*k)
-         call prin2 ('                  gamma_tot = *', gamma_tot, 1)
-         call prin2 ('                 zeta_k = *', zeta_k, 2*k)
+ccc         call prin2 (' in sol_grid_fmm, vort_k = *', vort_k, k)
+ccc         call prin2 ('                  zk_vort = *',zk_vort, 2*k)
+ccc         call prin2 ('                  gamma_tot = *', gamma_tot, 1)
+ccc         call prin2 ('                 zeta_k = *', zeta_k, 2*k)
 c
 c pack zeta and zeta_gr into x_zeta and y_zeta
          do i = 1, nbk
@@ -1917,45 +1943,61 @@ c
 c
 c
 c---------------
-      subroutine CALC_VEL (k, nd, nbk, nvort, u, A_k, zeta, dzeta, 
-     1                     zeta_k, vort_k, zk_vort, zvel, zf, wsave)
+      subroutine CALC_VEL (k, nd, nbk, nvort, u, gamma_tot, zeta, dzeta, 
+     1                     zeta_k, vort_k, zk_vort, zvel)
 c---------------
+c Calculate velocity at each of the point vortex locations according
+c to formula (13) in Crowdy (2006)
 c
       implicit real*8 (a-h,o-z)
-      dimension A_k(k), u(nbk), vort_k(nvort)
-      complex*16 zeta(nbk), dzeta(nbk), zeta_k(k), 
-     1           zk_vort(k), zf(*), zvel(nvort), wsave(*), eye
+      dimension u(nbk), vort_k(nvort)
+      complex*16 zeta(nbk), dzeta(nbk), zeta_k(k), zgrad,  
+     1           zk_vort(k), zvel(nvort), eye, zsum
 c
          pi = 4.d0*datan(1.d0)
          eye = dcmplx(0.d0, 1.d0)
-         dalph = 2.d0*pi/nd
+         dth = 2.d0*pi/nd
+         A = -gamma_tot
 c
          istart = 0
          do ivort = 1, nvort
             zvel(ivort) = 0.d0
             vfactor = 1.d0 + (cdabs(zk_vort(ivort)))**2
+            zsum = 0.d0
+c
+c         add on contributions from integral operator
             do kbod = 1, k
                do i = 1, nd
-                  zf(i) = u(istart+i)*dzeta(istart+i)/
+                  zsum = zsum + u(istart+i)*dzeta(istart+i)/
      1                     (zk_vort(ivort)-zeta(istart+i))**2
-ccc                  zf(i) = u(istart+i)
                end do
-               call DCFFTF (nd, zf, wsave)
-               zvel(ivort) = zvel(ivort) + 0.5d0*eye*zf(1)/nd
+               zsum = 0.25d0*eye*dth*zsum/pi
+ccc               zvel(ivort) = zvel(ivort) + 0.5d0*eye*zf(1)/nd
                istart = istart + nd
             end do
-ccc               do mbod = 1, k
-               do mbod = 1, 1
-ccc                  zvel(ivort) = zvel(ivort) + 0.5d0*A_k(mbod)*
-ccc     1                (1.d0/(zk_vort(ivort) - zeta_k(mbod)) -
-ccc     2                 dconjg(zk_vort(ivort))/vfactor)
-                  zvel(ivort) = zvel(ivort) + A_k(mbod)*
-     1                (1.d0/(zk_vort(ivort) - zeta_k(mbod)) -
-     2                 dconjg(zk_vort(ivort))/vfactor)
-               end do
-               zvel(ivort) = dconjg(-eye*0.5*zvel(ivort)*vfactor**2)
-          end do
+            zvel(ivort) = zsum
+ccc            call prin2 (' contribution from integral operator = *', 
+ccc     1                      zsum, 2)
+c
+c         add on contributions from other point vortices
+            do kvort = 1, nvort
+               if (kvort.ne.ivort) then
+                  call GRAD_POINT_VORTEX (zk_vort(ivort), 
+     1                                    zk_vort(kvort), zgrad)
+                  zvel(ivort) = zvel(ivort) + vort_k(kvort)*zgrad
+               end if
+            end do
+c
+c         add on contribution from log at north pole        
+            call GRAD_POINT_VORTEX (zk_vort(ivort), zeta_k(1), zgrad)
+            zvel(ivort) = zvel(ivort) + A*zgrad
+ccc            call prin2 (' contribution from log = *', A*zgrad, 2)
+c
+c  Calculate final velocity according to Crowdy's formula
+            zvel(ivort) = dconjg(-eye*0.5*zvel(ivort)*vfactor**2)
+         end do
          call PRIN2 (' zvel = *', zvel, 2*nvort)
+         call prin2 (' norm of velocity = *', cdabs(zvel(1)),1)
 c
       return
       end
