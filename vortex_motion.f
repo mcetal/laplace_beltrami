@@ -186,7 +186,7 @@ c Calculate velocity at a point
             zk_vort(ivort) = zk_vort(ivort) + dt*zvel(ivort)
          end do
          call PRIn2 (' zk_vort = *', zk_vort, 2*nvort)
-         if (mod(it,10).eq.0) then
+         if (mod(it,50).eq.0) then
             call RSCPLOT (zk_vort, nvort, 1, 41)
          end if
          end do

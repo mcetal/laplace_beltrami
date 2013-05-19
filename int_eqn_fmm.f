@@ -5,10 +5,15 @@ c
 c  Solves integral equation for Laplace-Beltrami on the Sphere by 
 c  using a stereographic projection and the FMM in the complex plane.
 c
+c  this solves the Dirichlet bvp in multiply connected domains
+c  (each hole has a log source)
+c
+c  can build a grid of holes on surface of sphere
+c
 c
 c     ------------------------------------------------------------------
       implicit real*8 (a-h, o-z)
-      parameter (kmax = 10, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 100, npmax = 512, nmax = kmax*npmax)
 c
 c Geometry of holes
       dimension ak(kmax), bk(kmax), th_k(kmax), phi_k(kmax), cx(kmax),
@@ -86,26 +91,31 @@ c common blocks
       common /sphere_int/ xs, ys, zs, xn, yn, zn, diag
 c
 c Open output files
-         open (unit = 11, file = 'movie/blob.m')
+ccc         open (unit = 11, file = 'movie/blob.m')
          open (unit = 21, file = 'density.m')
          open (unit = 22, file = 'vort_loc.m')
-         open (unit = 31, file = 'movie/igrid.dat')
-         open (unit = 32, file = 'movie/xgrid.dat')
-         open (unit = 33, file = 'movie/ygrid.dat')
-         open (unit = 34, file = 'movie/zgrid.dat')
-         open (unit = 35, file = 'movie/xzeta_grid.dat')
-         open (unit = 36, file = 'movie/yzeta_grid.dat')
-         open (unit = 37, file = 'movie/u_movie.m')
-         open (unit = 38, file = 'uex_grid.dat')
-         open (unit = 41, file = 'movie/vort_path.m')
-         open (unit = 42, file = 'movie/geo_3d.m')
-         open (unit = 43, file = 'movie/ugrid.dat')
-         open (unit = 51, file = 'movie/isl_grid.dat')
-         open (unit = 52, file = 'movie/targets.m')
-         open (unit = 53, file = 'movie/stereo_targets.m')
+ccc         open (unit = 31, file = 'movie/igrid.dat')
+ccc         open (unit = 32, file = 'movie/xgrid.dat')
+ccc         open (unit = 33, file = 'movie/ygrid.dat')
+ccc         open (unit = 34, file = 'movie/zgrid.dat')
+ccc         open (unit = 35, file = 'movie/xzeta_grid.dat')
+ccc         open (unit = 36, file = 'movie/yzeta_grid.dat')
+ccc         open (unit = 37, file = 'movie/u_movie.m')
+ccc         open (unit = 38, file = 'uex_grid.dat')
+         open (unit = 42, file = 'geo_3d.m')
+ccc         open (unit = 43, file = 'movie/ugrid.dat')
+ccc         open (unit = 51, file = 'movie/isl_grid.dat')
+ccc         open (unit = 52, file = 'movie/targets.m')
+ccc         open (unit = 53, file = 'movie/stereo_targets.m')
 c
-c Read hole geometry data
-         call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
+c Initial Hole Geometry is given by reading in data
+ccc         call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
+ccc     1                   th_k, phi_k, nvort, x1_vort, x2_vort, x3_vort,
+ccc     2                   vort_k, gamma_tot, r0)
+c
+c initial hole geometry is given by distributing random holes about 
+c sphere
+         call INIT_HOLE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                   th_k, phi_k, nvort, x1_vort, x2_vort, x3_vort,
      2                   vort_k, gamma_tot, r0)
          call DCFFTI (nd, wsave)
@@ -114,6 +124,7 @@ c Construct hole geometry and grid on surface of sphere
          call MAKE_GEO (k, nd, nbk, ak, bk, th_k, phi_k, xs, ys, zs,
      1                  dx, dy, dz, d2x, d2y, d2z, xn, yn, zn, dsda, 
      2                  diag)
+         stop
 c
 c Get stereo graphic projection
          call STEREO (k, nd, nbk, xs, ys, zs, dx, dy, dz, d2x, d2y, d2z,
@@ -277,6 +288,107 @@ c
          call PRIN2 (' r0 = *', r0, 1)
 c
          close(12)
+c
+      return
+      end
+c
+c
+c********1*********2*********3*********4*********5*********6*********7**
+c
+      subroutine INIT_HOLE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy,  
+     1                      cz, th_k, phi_k, nvort, x1_vort, x2_vort, 
+     2                      x3_vort, vort_k, gamma_tot, r0)
+c---------------
+      implicit real*8 (a-h,o-z)
+      dimension ak(*), bk(*), cx(*), cy(*), cz(*), th_k(*), phi_k(*)
+      dimension x1_vort(*), x2_vort(*), x3_vort(*), vort_k(*)
+      dimension arand(1000), brand(1000)
+c
+         pi = 4.d0*datan(1.d0)
+c
+         open (unit = 12, file = 'input.data')
+         call PRINI (6,13) 
+c
+c read in hole data from file to get nd and vortices (we will ignore 
+c k)
+         read (12,*) k, nd, nvort
+         nbk = k*nd
+         read(12,*) nth, nphi
+         do kbod = 1, k
+            read(12,*) ak(kbod), bk(kbod), th_k(kbod), phi_k(kbod)
+         end do
+         call PRINF (' nvort = *', nvort, 1)
+         gamma_tot = 0.d0
+         do ivort = 1, nvort
+            read(12,*) theta, phi, vort_k(ivort)
+            call SPH2CART (theta, phi, 1.d0, x1_vort(ivort),
+     1                     x2_vort(ivort), x3_vort(ivort))
+            gamma_tot = gamma_tot + vort_k(ivort)
+         end do
+c
+         close(12)
+c
+         call PRINF (' nth = *', nth, 1)
+         call PRINF (' nphi = *', nphi, 1)
+         call PRIN2 ('    vort_k = *', vort_k, nvort)
+         call PRIN2 ('    x1_vort = *', x1_vort, nvort)
+         call PRIN2 ('    x2_vort = *', x2_vort, nvort)
+         call PRIN2 ('    x3_vort = *', x3_vort, nvort)
+c
+         np = 5
+         nt = 5
+         k = (np-2)*nt + 2
+         call PRINF (' k = *', k, 1)
+         nbk = k*nd
+         call PRINF (' NBK = *', nbk, 1)
+         dphi = pi/(np-1)
+         dth = 2*pi/nt
+c
+c Generate random numbers
+         seed = 0
+         call zufalli(seed)
+         call zufallt(k,arand)
+         call zufallt(k,brand)
+         call PRIN2 (' arand = *', arand, k)
+         call PRIN2 (' brand = *', brand, k)
+c
+c hole at north pole
+         rmax = 0.5d0*dphi
+ccc         rmax = dphi
+         ak(1) = (0.1d0 + 0.8d0*arand(1))*rmax
+         bk(1) = -(0.1d0+0.8d0*brand(1))*rmax
+         phi_k(1) = 0.5d0*pi
+         th_k(1) = 0.d0
+c
+c grid holes between the poles
+         kbod = 2
+         do ip = 2, np-1
+            call prinf('ip = *', ip, 1) 
+            phi = 0.5d0*pi-dphi*(ip-1.d0)
+            call prin2 (' phi = *', phi, 1)
+            call prin2 (' dcos(phi) = *', dcos(phi), 1)
+            rmax = 0.5d0*min(dphi,dabs(dcos(phi))*dth)
+ccc            rmax = min(dphi,dabs(dcos(phi))*dth)
+            call PRIN2 ('  rmax = *', rmax, 1)
+            do it = 1, nt
+               theta = dth*(it-1.d0)
+               phi_k(kbod) = phi
+               th_k(kbod) = theta
+               ak(kbod) = (0.1d0 + 0.8d0*arand(kbod))*rmax
+               bk(kbod) = -(0.1d0+0.8d0*brand(kbod))*rmax
+               kbod = kbod+1
+            end do
+         end do
+         call prinf (' kbod should be k = *', kbod, 1)
+c
+c hole at South pole
+         rmax = 0.5d0*dphi
+         ak(k) = (0.1d0 + 0.8d0*arand(k))*rmax
+         bk(k) = -(0.1d0+0.8d0*brand(k))*rmax
+         phi_k(k) = -0.5d0*pi
+         th_k(k) = 0.d0
+         call prin2 (' ak = *', ak, k)
+         call prin2 (' bk = *', bk, k)
 c
       return
       end
@@ -2087,7 +2199,7 @@ c
 c
       DIMENSION R(N), Z(N)
 c
-      parameter (kmax = 10, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 100, npmax = 512, nmax = kmax*npmax)
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)
@@ -2319,7 +2431,7 @@ c  work.
 c
       implicit double precision (a-h,o-z)
       dimension xx(n), yy(n)
-      parameter (kmax = 10, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 100, npmax = 512, nmax = kmax*npmax)
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)
