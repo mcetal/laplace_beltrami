@@ -13,7 +13,7 @@ c
 c
 c     ------------------------------------------------------------------
       implicit real*8 (a-h, o-z)
-      parameter (kmax = 100, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 500, npmax = 2048, nmax = kmax*npmax)
 c
 c Geometry of holes
       dimension ak(kmax), bk(kmax), th_k(kmax), phi_k(kmax), cx(kmax),
@@ -37,9 +37,9 @@ c target points are used to check accuracy
       dimension xtar(ng_max), ytar(ng_max), ztar(ng_max), 
      1          xz_tar(ng_max), yz_tar(ng_max), u_tar(ng_max)
       complex*16 zeta_tar(ng_max)    
-c
-c system matrices
-      dimension asphere((nmax+kmax)**2), astereo((nmax+kmax)**2)      
+cccc
+cccc system matrices
+ccc      dimension asphere((nmax+kmax)**2), astereo((nmax+kmax)**2)      
 c
 c System
       dimension aKu(nmax), density(nmax), A_k(kmax)
@@ -109,15 +109,23 @@ ccc         open (unit = 51, file = 'movie/isl_grid.dat')
          open (unit = 53, file = 'stereo_targets.m')
 c
 c Initial Hole Geometry is given by reading in data
-ccc         call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
-ccc     1                   th_k, phi_k, nvort, x1_vort, x2_vort, x3_vort,
-ccc     2                   vort_k, gamma_tot, r0, zeta_k)
+c   if iflag = 1, read in from input.data
+c   if iflag = 2, read in from input_gridhole.data 
+c   if iflag = 3, construct grid of holes
+         iflag = 2
+         if ((iflag.eq.1).or.(iflag.eq.2)) then  
+            call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
+     1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
+     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k, 
+     3                      iflag)
+           else
 c
 c initial hole geometry is given by distributing random holes about 
 c sphere
-         call INIT_HOLE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
-     1                   th_k, phi_k, nvort, x1_vort, x2_vort, x3_vort,
-     2                   vort_k, gamma_tot, r0, zeta_k)
+            call INIT_HOLE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy,  
+     1                      cz, th_k, phi_k, nvort, x1_vort, x2_vort, 
+     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k)
+         end if
          call DCFFTI (nd, wsave)
 c
 c Construct hole geometry and grid on surface of sphere
@@ -246,7 +254,8 @@ c********1*********2*********3*********4*********5*********6*********7**
 c
       subroutine READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
-     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k)
+     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k,
+     3                      iflag)
 c---------------
       implicit real*8 (a-h,o-z)
       dimension ak(*), bk(*), cx(*), cy(*), cz(*), th_k(*), phi_k(*)
@@ -255,7 +264,11 @@ c---------------
 c
          eye = dcmplx(0.d0,1.d0)
 c
-         open (unit = 12, file = 'input.data')
+         if (iflag.eq.1) then
+            open (unit = 12, file = 'input.data')
+           else
+            open (unit = 12, file = 'input_gridhole.data')
+         end if
 c
          read (12,*) k, nd, nvort
          nbk = k*nd
@@ -299,7 +312,7 @@ c
 c be careful if one of the hole centres is at the north pole
 c if it is, nudge it a little
             if (check.lt.eps) then
-               cz_s = 0.99d0
+               cz_s = 0.9999d0
                cx_s = dsqrt(0.5d0*(1-cz_s**2))
                cy_s = cx_s
                zeta_k(kbod) = (cx_s + eye*cy_s)/(1.d0-cz_s)
@@ -314,7 +327,7 @@ c if it is, nudge it a little
                zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
             end if
          end do
-         call PRIN2 (' zeta_k = *', zeta_k, 2*k)
+ccc         call PRIN2 (' zeta_k = *', zeta_k, 2*k)
          close(12)
 c
       return
@@ -364,8 +377,8 @@ c
          call PRIN2 ('    x2_vort = *', x2_vort, nvort)
          call PRIN2 ('    x3_vort = *', x3_vort, nvort)
 c
-         np = 7
-         nt = 14
+         np = 12
+         nt = 20
 ccc         np = 5
 ccc         nt = 5
          k = (np-2)*nt + 2
@@ -387,8 +400,10 @@ c
 c hole at north pole
          rmax = 0.5d0*dphi
 ccc         rmax = dphi
-         ak(1) = (0.1d0 + 0.8d0*arand(1))*rmax
-         bk(1) = -(0.1d0+0.8d0*brand(1))*rmax
+         ak(1) = (0.01d0 + 0.98d0*arand(1))*rmax
+         bk(1) = -(0.01d0+0.98d0*brand(1))*rmax
+ccc         ak(1) = rmax
+ccc         bk(1) = -rmax
          phi_k(1) = 0.5d0*pi
          th_k(1) = 0.d0
          call SPH2CART (th_k(1), phi_k(1), 1.d0, cx(1), cy(1), cz(1))
@@ -407,8 +422,10 @@ ccc            rmax = min(dphi,dabs(dcos(phi))*dth)
                theta = dth*(it-1.d0)
                phi_k(kbod) = phi
                th_k(kbod) = theta
-               ak(kbod) = (0.1d0 + 0.8d0*arand(kbod))*rmax
-               bk(kbod) = -(0.1d0 + 0.8d0*brand(kbod))*rmax
+               ak(kbod) = (0.01d0 + 0.98d0*arand(kbod))*rmax
+               bk(kbod) = -(0.01d0 + 0.98d0*brand(kbod))*rmax
+ccc               ak(kbod) = rmax
+ccc               bk(kbod) = -rmax
                call SPH2CART (th_k(kbod), phi_k(kbod), 1.d0, cx(kbod),
      1                        cy(kbod), cz(kbod))
                kbod = kbod+1
@@ -418,8 +435,10 @@ ccc            rmax = min(dphi,dabs(dcos(phi))*dth)
 c
 c hole at South pole
          rmax = 0.5d0*dphi
-         ak(k) = (0.1d0 + 0.8d0*arand(k))*rmax
-         bk(k) = -(0.1d0+0.8d0*brand(k))*rmax
+         ak(k) = (0.01d0 + 0.98d0*arand(k))*rmax
+         bk(k) = -(0.01d0 + 0.98d0*brand(k))*rmax
+ccc         ak(k) = rmax
+ccc         bk(k) = -rmax
          phi_k(k) = -0.5d0*pi
          th_k(k) = 0.d0
          call SPH2CART (th_k(k), phi_k(k), 1.d0, cx(k), cy(k), cz(k))
@@ -435,7 +454,7 @@ c
 c be careful if one of the hole centres is at the north pole
 c if it is, nudge it a little
             if (check.lt.eps) then
-               cz_s = 0.99d0
+               cz_s = 0.9999d0
                cx_s = dsqrt(0.5d0*(1-cz_s**2))
                cy_s = cx_s
                zeta_k(kbod) = (cx_s + eye*cy_s)/(1.d0-cz_s)
@@ -451,7 +470,22 @@ c if it is, nudge it a little
                zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
             end if
          end do
-         call PRIN2 (' zeta_k = *', zeta_k, 2*k)
+ccc         call PRIN2 (' zeta_k = *', zeta_k, 2*k)
+c
+c write out everything to be read in the next time
+         open (unit=12, file = 'input_gridhole.data')
+         write (12,*) k, nd, nvort
+         write (12,*) nth, nphi
+         do kbod = 1, k
+            write (12,'(4(e24.15,$))') ak(kbod), bk(kbod), th_k(kbod), 
+     1                 phi_k(kbod)
+            write (12,'(a)')  ''
+         end do
+         do ivort = 1, nvort
+            read(12,'(4(e24.15,$))') theta, phi, vort_k(ivort)
+            write (12,'(a)')  ''
+         end do
+         close (12)
 c
       return
       end
@@ -1361,7 +1395,7 @@ c
          iout(1) = 0
          iout(2) = 13
          iflag7 = 3
-         napb = 20
+         napb = 40
          ninire = 2
          mex = 300
          eps7 = 1.d-14
@@ -1634,8 +1668,8 @@ c     parameters for DGMRES
 c
 c  Preconditioner flag
 c
-ccc         iwork(4) = -1
-         iwork(4) = 0
+         iwork(4) = -1
+ccc         iwork(4) = 0
 c
 c  Restart flag
 c  
@@ -2255,7 +2289,7 @@ c
 c
       DIMENSION R(N), Z(N)
 c
-      parameter (kmax = 100, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 500, npmax = 2048, nmax = kmax*npmax)
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)
@@ -2485,7 +2519,7 @@ c  work.
 c
       implicit double precision (a-h,o-z)
       dimension xx(n), yy(n)
-      parameter (kmax = 100, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 500, npmax = 2048, nmax = kmax*npmax)
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)
