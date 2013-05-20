@@ -1,5 +1,5 @@
 close all; clear;
-NX = 200; NY = 400;
+NX = 500; NY = 1001;
 load igrid.dat
  a = zeros(NX,NY);
  a(:) = igrid(:);
@@ -44,8 +44,12 @@ surf(xgrid,ygrid,zgrid,igrid)
 figure(2)
 surf(xgrid,ygrid,zgrid,ugrid)
    shading flat
+   hold on
+   geo_3d
+   caxis ([-1000 1000])
 figure(3)
-contour(xzeta_grid,yzeta_grid,ugrid,100)
+vc = [-400:800/60:400];
+contour(xzeta_grid,yzeta_grid,ugrid,vc)
 hold on
-blob
-axis ([-15 7 -15 15])
+stereo_geo
+%axis ([-15 7 -15 15])

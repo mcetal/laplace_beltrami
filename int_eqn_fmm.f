@@ -39,6 +39,7 @@ c target points are used to check accuracy
       complex*16 zeta_tar(ng_max)    
 cccc
 cccc system matrices
+cccc uncomment this only for smaller problems; memory problems otherwise
 ccc      dimension asphere((nmax+kmax)**2), astereo((nmax+kmax)**2)      
 c
 c System
@@ -91,28 +92,12 @@ c common blocks
       common /sphere_int/ xs, ys, zs, xn, yn, zn, diag
 c
 c Open output files
-         open (unit = 11, file = 'blob.m')
-         open (unit = 21, file = 'density.m')
-         open (unit = 22, file = 'vort_loc.m')
-ccc         open (unit = 31, file = 'movie/igrid.dat')
-ccc         open (unit = 32, file = 'movie/xgrid.dat')
-ccc         open (unit = 33, file = 'movie/ygrid.dat')
-ccc         open (unit = 34, file = 'movie/zgrid.dat')
-ccc         open (unit = 35, file = 'movie/xzeta_grid.dat')
-ccc         open (unit = 36, file = 'movie/yzeta_grid.dat')
-ccc         open (unit = 37, file = 'movie/u_movie.m')
-ccc         open (unit = 38, file = 'uex_grid.dat')
-         open (unit = 42, file = 'geo_3d.m')
-ccc         open (unit = 43, file = 'movie/ugrid.dat')
-ccc         open (unit = 51, file = 'movie/isl_grid.dat')
-         open (unit = 52, file = 'targets.m')
-         open (unit = 53, file = 'stereo_targets.m')
 c
 c Initial Hole Geometry is given by reading in data
 c   if iflag = 1, read in from input.data
 c   if iflag = 2, read in from input_gridhole.data 
 c   if iflag = 3, construct grid of holes
-         iflag = 2
+         iflag = 3
          if ((iflag.eq.1).or.(iflag.eq.2)) then  
             call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
@@ -137,44 +122,25 @@ c Get stereo graphic projection
          call STEREO (k, nd, nbk, xs, ys, zs, dx, dy, dz, d2x, d2y, d2z,
      1                zeta, dzeta, x_zeta, y_zeta, diag_stereo, 
      2                nvort, x1_vort, x2_vort, x3_vort, zk_vort) 
-         call RSCPLOT (zk_vort, nvort, 1, 41)
 c
 c Construct grid on surface of sphere
-         call SURFACE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
-     1                      th_k, phi_k, th_gr, phi_gr, x_gr, y_gr,
-     2                      z_gr, zeta_gr, xzeta_gr, yzeta_gr, igrid,
-     3                      alph_gr, xtar, ytar, ztar, ntar)
+ccc         call SURFACE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
+ccc     1                      th_k, phi_k, th_gr, phi_gr, x_gr, y_gr,
+ccc     2                      z_gr, zeta_gr, xzeta_gr, yzeta_gr, igrid,
+ccc     3                      alph_gr, xtar, ytar, ztar, ntar)
          call TARGET_POINTS (k, nd, nbk, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, xtar, ytar, ztar, ntar,
      2                      xz_tar, yz_tar, zeta_tar)
-ccc            call DUMP (nth, nphi, u_gr, igrid, 0, 31)
-ccc            call DUMP (nth, nphi, alph_gr, igrid, 1, 51)
-ccc            call DUMP (nth, nphi, x_gr, igrid, 1, 32)
-ccc            call DUMP (nth, nphi, y_gr, igrid, 1, 33)
-ccc            call DUMP (nth, nphi, z_gr, igrid, 1, 34)
-ccc            call DUMP (nth, nphi, xzeta_gr, igrid, 1, 35)
-ccc            call DUMP (nth, nphi, yzeta_gr, igrid, 1, 36)
-ccc         call PRIn2 (' diag_stereo = *', diag_stereo, nbk)
-c
-c Time loop for vortex path
-         tbeg = etime(timep)
-         dt = 0.0001d0
-         ntime =  1
-         do it = 1, ntime
-            time = it*dt  
-            call PRIN2 (' time = *', time, 1)       
 c
 c Construct the RHS and solve
          call GETRHS (k, nd, nbk, cx, cy, cz, zeta_k, zeta, rhs,
      1                nvort, vort_k, zk_vort, gamma_tot)
 ccc         call PRIN2 (' rhs = *', rhs, nbk)
-c
-c Construct system matrices to be dumped into matlab
-         write (6,*) 'here am i'
-ccc         call BUILD_MAT_STEREO ()
          call SOLVE (nd, k, kmax, nbk, rhs, soln, density, A_k, gmwork, 
      1               lrwork, igwork, liwork, dsda, maxl, schur, wb,
      2               ipvtbf, zeta, zeta_k)
+cccc
+cccc Construct system matrices to be dumped into matlab
 ccc         call BUILD_MAT_SPHERE (k, nd, nbk, xs, ys, zs, xn, yn, zn,
 ccc     1                          dsda, diag, cx, cy, cz, asphere)
 ccc         call BUILD_MAT_STEREO (k, nd, nbk, x_zeta, y_zeta, zeta,     
@@ -187,39 +153,14 @@ c
 c Construct solution on surface grid
 ccc         call SOL_GRID (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
 ccc     1                  zeta, dzeta, igrid, zeta_gr, u_gr)
-         nplot = mod(it,100)
-         call PRINF (' nplot = *', nplot, 1)
-ccc         if (mod(it,100).eq.0) then
-         call SOL_GRID_FMM (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
-     1                      zeta, dzeta, igrid, zeta_gr, u_gr,
-     2                      x_zeta, y_zeta, qa, cfield, poten, nsp, 
-     3                      wksp, nvort, vort_k, zk_vort)
+ccc         call SOL_GRID_FMM (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
+ccc     1                      zeta, dzeta, igrid, zeta_gr, u_gr,
+ccc     2                      x_zeta, y_zeta, qa, cfield, poten, nsp, 
+ccc     3                      wksp, nvort, vort_k, zk_vort)
          call SOL_TAR_FMM (nd, k, nbk, ntar, density, A_k, zeta_k,   
      1                     x_zeta, y_zeta, zeta, dzeta, zeta_tar, u_tar,
      2                     xz_tar, yz_tar, qa, cfield, poten, nsp, 
      3                     wksp, nvort, vort_k, zk_vort)
-c
-c for a vortex in presence of cap with radius r0, check solution
-ccc         call SOL_VORT_CHECK (nd, k, nbk, nth, nphi, nvort, zeta_gr,  
-ccc     1                        igrid, u_gr, uex_gr, zk_vort, r0)
-            call DUMP_MOVIE_ALL (nth, nphi, time, u_gr, it, 37)
-            call DUMP_MOVIE_VORT (nth, nphi, time, zk_vort(1), u_gr, 
-     1                            it, 37)
-ccc          end if
-ccc            call DUMP (nth, nphi, uex_gr, igrid, 1, 38)
-c
-c Calculate velocity at a point
-ccc         call CALC_VEL (k, nd, nbk, nvort, density, A_k, zeta, dzeta, 
-ccc     1                  zeta_k, vort_k, zk_vort, zvel, zf, wsave)
-ccc         do ivort = 1, nvort
-ccc            zk_vort(ivort) = zk_vort(ivort) + dt*zvel(ivort)
-ccc         end do
-         call PRIn2 (' zk_vort = *', zk_vort, 2*nvort)
-         call RSCPLOT (zk_vort, nvort, 1, 41)
-         end do
-         tend = etime(timep)
-         call PRIN2 (' TOTAL CPU TIME = *', tend-tbeg, 1)
-            call DUMP (nth, nphi, u_gr, igrid, 1, 43)
 c
 c calculate 
 c
@@ -228,23 +169,6 @@ ccc         call CHECK_ERROR (nd, k, nbk, nth, nphi, zeta_k, igrid,
 ccc     1                     zeta_gr, u_gr)
          call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
      1                         u_tar)
-c
-c dump out density
-         pi = 4.d0*datan(1.d0)
-         do i = 1, nd
-            alpha(i) = 2*pi*(i-1)/nd
-         end do
-         do kbod = 1, k
-            call RSPLOT (alpha, density((kbod-1)*nd+1), nd, 1, 21)
-         end do
-c
-         close (31)
-         close (32)
-         close (33)
-         close (34)
-         close (35)
-         close (36)
-         close (37)
 c
       stop
       end
@@ -377,8 +301,8 @@ c
          call PRIN2 ('    x2_vort = *', x2_vort, nvort)
          call PRIN2 ('    x3_vort = *', x3_vort, nvort)
 c
-         np = 12
-         nt = 20
+         np = 17
+         nt = 27
 ccc         np = 5
 ccc         nt = 5
          k = (np-2)*nt + 2
@@ -679,10 +603,12 @@ c Construct the diagonal entry
             istart = istart + nd
          end do
          is = 1
+         open (unit = 42, file = 'geo_3d.m')
          do kbod = 1, k
             call RS_3D_PLOT (xs(is),ys(is),zs(is), nd, 1, 42)
             is = is + nd
          end do
+         close (42)
 c
       return
       end      
@@ -787,9 +713,24 @@ c
                end if
             end do
          end do 
-c
-         open (unit = 21, file = 'zeta_grid.m')
-         call RSCPLOT (zeta_gr, nth*nphi, 1, 21)
+         open (unit = 31, file = 'igrid.dat')
+         open (unit = 32, file = 'xgrid.dat')
+         open (unit = 33, file = 'ygrid.dat')
+         open (unit = 34, file = 'zgrid.dat')
+         open (unit = 35, file = 'xzeta_grid.dat')
+         open (unit = 36, file = 'yzeta_grid.dat')
+         call DUMP (nth, nphi, x_gr, igrid, 0, 31)
+         call DUMP (nth, nphi, x_gr, igrid, 1, 32)
+         call DUMP (nth, nphi, y_gr, igrid, 1, 33)
+         call DUMP (nth, nphi, z_gr, igrid, 1, 34)
+         call DUMP (nth, nphi, xzeta_gr, igrid, 1, 35)
+         call DUMP (nth, nphi, yzeta_gr, igrid, 1, 36)
+         close (31)
+         close (32)
+         close (33)
+         close (34)
+         close (35)
+         close (36)
 c
       return
       end      
@@ -862,8 +803,12 @@ ccc            xz_tar(i) = dreal(zeta_tar(i))
 ccc            yz_tar(i) = dimag(zeta_tar(i))
 ccc         end do
 c
+         open (unit = 52, file = 'targets_3d.m')
+         open (unit = 53, file = 'stereo_targets.m')
          call RSCPLOT (zeta_tar, ntar, 1, 53)
          call RS_3D_PLOT (xtar, ytar, ztar, ntar, 1, 52)
+         close (32)
+         close (33)
 c
       return
       end      
@@ -911,14 +856,21 @@ ccc         call prin2 (' zeta 2 = *', zeta(1+nd), 2*nd)
 ccc         call prin2 (' dzeta 1 = *', dzeta, 2*nd)
 ccc         call prin2 (' dzeta 2 = *', dzeta(1+nd), 2*nd)
 ccc         call prin2 (' diag = *', diag, nbk)
+         open (unit = 22, file = 'stereo_vortices.m')
+         open (unit = 23, file = 'vortices_3d.m')
          do ivort = 1, nvort
             zk_vort(ivort) = (x1_vort(ivort) + eye*x2_vort(ivort))/
      1                       (1.d0 - x3_vort(ivort))
          end do
          call RSCPLOT (zk_vort, nvort, 1, 22)
+         call RS_3D_PLOT (x1_vort,x2_vort,x3_vort,nvort, 1, 23)
+         close (22)
+         close (23)
+         open (unit = 11, file = 'stereo_geo.m')
          do kbod = 1, k
             call RSCPLOT (zeta((kbod-1)*nd+1), nd, 1, 11)
          end do
+         close (11)
 c
       return
       end      
@@ -1947,7 +1899,7 @@ ccc         call PRIN2 (' cfield = *', cfield, 2*nnn)
 ccc         call PRINF (' Number of Levels used = *', inform(3), 1)
 ccc         call PRIN2 (' cfield = *', cfield, 2*nbk)
 c
-         call PRIN2 (' a_k in sol_GRID_FMM = *', A_k, k)
+ccc         call PRIN2 (' a_k in sol_GRID_FMM = *', A_k, k)
 c Fix up field
          ij = nbk
          umax = -1.d10
@@ -1969,7 +1921,7 @@ ccc                  do kbod = 1, 1
                   umax = max(umax,u_gr(i,j))
                   umin = min(umin,u_gr(i,j))
                  else
-                  u_gr(i,j) = -1000.d0
+                  u_gr(i,j) = -100000.d0
                end if
             end do
          end do
@@ -2002,6 +1954,10 @@ c
 ccc         call PRIN2 (' poten = *', poten, n)
          call PRIN2 (' TIME FOR FMM  ON GRID = *',tend-tbeg,1)
 ccc         call PRIN2 (' cfield = *', cfield, 2*n)
+c
+         open (unit=43, file = 'ugrid.dat')
+         call DUMP (nth, nphi, u_gr, igrid, 1, 43)
+         close (43)
 c
       return
       end
@@ -2213,8 +2169,8 @@ c
          eye = dcmplx(0.d0, 1.d0)
          dalph = 2.d0*pi/nd
 c
-         call PRIn2 (' zeta_k in check_ERROR = *', zeta_k, 2*k)
-         call PRIN2 (' zeta_gr = *', zeta_gr(1,1), 2)
+ccc         call PRIn2 (' zeta_k in check_ERROR = *', zeta_k, 2*k)
+ccc         call PRIN2 (' zeta_gr = *', zeta_gr(1,1), 2)
          err = 0.d0
          do i = 1, nth
             do j = 1, nphi
