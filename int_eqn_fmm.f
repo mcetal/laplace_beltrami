@@ -364,10 +364,10 @@ c
          call PRIN2 ('    x2_vort = *', x2_vort, nvort)
          call PRIN2 ('    x3_vort = *', x3_vort, nvort)
 c
-ccc         np = 7
-ccc         nt = 14
-         np = 5
-         nt = 5
+         np = 7
+         nt = 14
+ccc         np = 5
+ccc         nt = 5
          k = (np-2)*nt + 2
          call PRINF (' k = *', k, 1)
          nbk = k*nd
@@ -783,7 +783,7 @@ c Calculate epsilon
          end do
          call PRIN2 (' maximum radius = *', radmax, 1)
 ccc         eps = 20*2.d0*pi*radmax/nd
-         eps = 0.5d0
+         eps = 1.0d0
          call PRIN2 (' Epsilon = *', eps, 1) 
 c
          nth = 10
@@ -1634,8 +1634,8 @@ c     parameters for DGMRES
 c
 c  Preconditioner flag
 c
-         iwork(4) = -1
-ccc         iwork(4) = 0
+ccc         iwork(4) = -1
+         iwork(4) = 0
 c
 c  Restart flag
 c  
@@ -2462,12 +2462,12 @@ C
 C 
       CALL DGECO(SCHUR,K,K,IPVTBF,RCOND,WB)
       call prin2(' rcond = *',rcond,1)
-      DO KBOD = 1,K
-	 call prinf(' column *',KBOD,1)
-	 call prin2(' SCHUR = *',schur(1,KBOD),K)
-      END DO
-      call PRINf (' ipvtbf = *', ipvtbf, K)
-      call PRIN2 (' wb = *', wb, k)
+ccc      DO KBOD = 1,K
+ccc	 call prinf(' column *',KBOD,1)
+ccc	 call prin2(' SCHUR = *',schur(1,KBOD),K)
+ccc      END DO
+ccc      call PRINf (' ipvtbf = *', ipvtbf, K)
+ccc      call PRIN2 (' wb = *', wb, k)
 C
 ccc      call prin2(' w is *',w,norder)
       RETURN
