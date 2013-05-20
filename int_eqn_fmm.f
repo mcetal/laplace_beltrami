@@ -85,13 +85,13 @@ c Other arrays
 c
 c common blocks
       common /geometry/ x_zeta, y_zeta, zeta, dzeta, dsda
-      common /inteqn/ diag_stereo, cx, cy, cz
+      common /inteqn/ diag_stereo, cx, cy, cz, zeta_k
       common /sys_size/ k, nd, nbk
       common /fasblk2/ schur,wb,ipvtbf
       common /sphere_int/ xs, ys, zs, xn, yn, zn, diag
 c
 c Open output files
-ccc         open (unit = 11, file = 'movie/blob.m')
+         open (unit = 11, file = 'blob.m')
          open (unit = 21, file = 'density.m')
          open (unit = 22, file = 'vort_loc.m')
 ccc         open (unit = 31, file = 'movie/igrid.dat')
@@ -105,26 +105,25 @@ ccc         open (unit = 38, file = 'uex_grid.dat')
          open (unit = 42, file = 'geo_3d.m')
 ccc         open (unit = 43, file = 'movie/ugrid.dat')
 ccc         open (unit = 51, file = 'movie/isl_grid.dat')
-ccc         open (unit = 52, file = 'movie/targets.m')
-ccc         open (unit = 53, file = 'movie/stereo_targets.m')
+         open (unit = 52, file = 'targets.m')
+         open (unit = 53, file = 'stereo_targets.m')
 c
 c Initial Hole Geometry is given by reading in data
 ccc         call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
 ccc     1                   th_k, phi_k, nvort, x1_vort, x2_vort, x3_vort,
-ccc     2                   vort_k, gamma_tot, r0)
+ccc     2                   vort_k, gamma_tot, r0, zeta_k)
 c
 c initial hole geometry is given by distributing random holes about 
 c sphere
          call INIT_HOLE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                   th_k, phi_k, nvort, x1_vort, x2_vort, x3_vort,
-     2                   vort_k, gamma_tot, r0)
+     2                   vort_k, gamma_tot, r0, zeta_k)
          call DCFFTI (nd, wsave)
 c
 c Construct hole geometry and grid on surface of sphere
          call MAKE_GEO (k, nd, nbk, ak, bk, th_k, phi_k, xs, ys, zs,
      1                  dx, dy, dz, d2x, d2y, d2z, xn, yn, zn, dsda, 
      2                  diag)
-         stop
 c
 c Get stereo graphic projection
          call STEREO (k, nd, nbk, xs, ys, zs, dx, dy, dz, d2x, d2y, d2z,
@@ -140,13 +139,13 @@ c Construct grid on surface of sphere
          call TARGET_POINTS (k, nd, nbk, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, xtar, ytar, ztar, ntar,
      2                      xz_tar, yz_tar, zeta_tar)
-            call DUMP (nth, nphi, u_gr, igrid, 0, 31)
-            call DUMP (nth, nphi, alph_gr, igrid, 1, 51)
-            call DUMP (nth, nphi, x_gr, igrid, 1, 32)
-            call DUMP (nth, nphi, y_gr, igrid, 1, 33)
-            call DUMP (nth, nphi, z_gr, igrid, 1, 34)
-            call DUMP (nth, nphi, xzeta_gr, igrid, 1, 35)
-            call DUMP (nth, nphi, yzeta_gr, igrid, 1, 36)
+ccc            call DUMP (nth, nphi, u_gr, igrid, 0, 31)
+ccc            call DUMP (nth, nphi, alph_gr, igrid, 1, 51)
+ccc            call DUMP (nth, nphi, x_gr, igrid, 1, 32)
+ccc            call DUMP (nth, nphi, y_gr, igrid, 1, 33)
+ccc            call DUMP (nth, nphi, z_gr, igrid, 1, 34)
+ccc            call DUMP (nth, nphi, xzeta_gr, igrid, 1, 35)
+ccc            call DUMP (nth, nphi, yzeta_gr, igrid, 1, 36)
 ccc         call PRIn2 (' diag_stereo = *', diag_stereo, nbk)
 c
 c Time loop for vortex path
@@ -247,11 +246,14 @@ c********1*********2*********3*********4*********5*********6*********7**
 c
       subroutine READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
-     2                      x3_vort, vort_k, gamma_tot, r0)
+     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k)
 c---------------
       implicit real*8 (a-h,o-z)
       dimension ak(*), bk(*), cx(*), cy(*), cz(*), th_k(*), phi_k(*)
       dimension x1_vort(*), x2_vort(*), x3_vort(*), vort_k(*)
+      complex*16 zeta_k(*), eye
+c
+         eye = dcmplx(0.d0,1.d0)
 c
          open (unit = 12, file = 'input.data')
 c
@@ -287,6 +289,32 @@ c
          r0 = ak(1)/(1.d0-dsqrt(1.d0-(ak(1))**2))
          call PRIN2 (' r0 = *', r0, 1)
 c
+c
+c a fudge for pole
+ccc         call SPH2CART (0.d0, 1.4d0, 1.d0, cx(1), cy(1), cz(1))
+         eps = 1.d-6
+         do kbod = 1, k
+            check = dabs(cz(kbod)-1.d0)
+c
+c be careful if one of the hole centres is at the north pole
+c if it is, nudge it a little
+            if (check.lt.eps) then
+               cz_s = 0.99d0
+               cx_s = dsqrt(0.5d0*(1-cz_s**2))
+               cy_s = cx_s
+               zeta_k(kbod) = (cx_s + eye*cy_s)/(1.d0-cz_s)
+               write (6,*) 'Fudging hole centre a little'
+               call prin2 (' old centre, cx = *', cx(kbod), 1)
+               call prin2 (' old centre, cy = *', cy(kbod), 1)
+               call prin2 (' old centre, cz = *', cz(kbod), 1)
+               call prin2 (' new centre, cx = *', cx_s, 1)
+               call prin2 (' new centre, cy = *', cy_s, 1)
+               call prin2 (' new centre, cz = *', cz_s, 1)
+            else
+               zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
+            end if
+         end do
+         call PRIN2 (' zeta_k = *', zeta_k, 2*k)
          close(12)
 c
       return
@@ -297,14 +325,16 @@ c********1*********2*********3*********4*********5*********6*********7**
 c
       subroutine INIT_HOLE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy,  
      1                      cz, th_k, phi_k, nvort, x1_vort, x2_vort, 
-     2                      x3_vort, vort_k, gamma_tot, r0)
+     2                      x3_vort, vort_k, gamma_tot, r0, zeta_k)
 c---------------
       implicit real*8 (a-h,o-z)
       dimension ak(*), bk(*), cx(*), cy(*), cz(*), th_k(*), phi_k(*)
       dimension x1_vort(*), x2_vort(*), x3_vort(*), vort_k(*)
       dimension arand(1000), brand(1000)
+      complex*16 zeta_k(*), eye
 c
          pi = 4.d0*datan(1.d0)
+         eye = dcmplx(0.d0,1.d0)
 c
          open (unit = 12, file = 'input.data')
          call PRINI (6,13) 
@@ -312,7 +342,6 @@ c
 c read in hole data from file to get nd and vortices (we will ignore 
 c k)
          read (12,*) k, nd, nvort
-         nbk = k*nd
          read(12,*) nth, nphi
          do kbod = 1, k
             read(12,*) ak(kbod), bk(kbod), th_k(kbod), phi_k(kbod)
@@ -335,11 +364,14 @@ c
          call PRIN2 ('    x2_vort = *', x2_vort, nvort)
          call PRIN2 ('    x3_vort = *', x3_vort, nvort)
 c
+ccc         np = 7
+ccc         nt = 14
          np = 5
          nt = 5
          k = (np-2)*nt + 2
          call PRINF (' k = *', k, 1)
          nbk = k*nd
+         call PRINF (' nd = *', nd, 1)
          call PRINF (' NBK = *', nbk, 1)
          dphi = pi/(np-1)
          dth = 2*pi/nt
@@ -359,6 +391,7 @@ ccc         rmax = dphi
          bk(1) = -(0.1d0+0.8d0*brand(1))*rmax
          phi_k(1) = 0.5d0*pi
          th_k(1) = 0.d0
+         call SPH2CART (th_k(1), phi_k(1), 1.d0, cx(1), cy(1), cz(1))
 c
 c grid holes between the poles
          kbod = 2
@@ -375,7 +408,9 @@ ccc            rmax = min(dphi,dabs(dcos(phi))*dth)
                phi_k(kbod) = phi
                th_k(kbod) = theta
                ak(kbod) = (0.1d0 + 0.8d0*arand(kbod))*rmax
-               bk(kbod) = -(0.1d0+0.8d0*brand(kbod))*rmax
+               bk(kbod) = -(0.1d0 + 0.8d0*brand(kbod))*rmax
+               call SPH2CART (th_k(kbod), phi_k(kbod), 1.d0, cx(kbod),
+     1                        cy(kbod), cz(kbod))
                kbod = kbod+1
             end do
          end do
@@ -387,8 +422,36 @@ c hole at South pole
          bk(k) = -(0.1d0+0.8d0*brand(k))*rmax
          phi_k(k) = -0.5d0*pi
          th_k(k) = 0.d0
+         call SPH2CART (th_k(k), phi_k(k), 1.d0, cx(k), cy(k), cz(k))
          call prin2 (' ak = *', ak, k)
          call prin2 (' bk = *', bk, k)
+c
+c a fudge for pole
+ccc         call SPH2CART (0.d0, 1.4d0, 1.d0, cx(1), cy(1), cz(1))
+         eps = 1.d-6
+         do kbod = 1, k
+            check = dabs(cz(kbod)-1.d0)
+c
+c be careful if one of the hole centres is at the north pole
+c if it is, nudge it a little
+            if (check.lt.eps) then
+               cz_s = 0.99d0
+               cx_s = dsqrt(0.5d0*(1-cz_s**2))
+               cy_s = cx_s
+               zeta_k(kbod) = (cx_s + eye*cy_s)/(1.d0-cz_s)
+               write (6,*) 'Fudging hole centre a little'
+               call prin2 (' old centre, cx = *', cx(kbod), 1)
+               call prin2 (' old centre, cy = *', cy(kbod), 1)
+               call prin2 (' old centre, cz = *', cz(kbod), 1)
+               call prin2 (' new centre, cx = *', cx_s, 1)
+               call prin2 (' new centre, cy = *', cy_s, 1)
+               call prin2 (' new centre, cz = *', cz_s, 1)
+               call prin2 (' new zeta_k = *', zeta_k(kbod), 2)
+            else
+               zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
+            end if
+         end do
+         call PRIN2 (' zeta_k = *', zeta_k, 2*k)
 c
       return
       end
@@ -803,17 +866,17 @@ c
             xddot = dreal(d2zeta)
             yddot = dimag(d2zeta)
             rkappa = (xdot*yddot-ydot*xddot)/ds**3
-            call prin2 (' rkappa = *', rkappa, 1)
+ccc            call prin2 (' rkappa = *', rkappa, 1)
             zextra = dzeta(i)*dconjg(zeta(i))/(1.d0+cdabs(zeta(i))**2)
             zextra = zextra/(2.d0*pi)
             diag(i) = 0.25d0*rkappa*ds/pi - dimag(zextra)
 ccc            diag(i) = 0.25d0*rkappa*ds/pi 
          end do
-         call prin2 (' zeta 1 = *', zeta, 2*nd)
-         call prin2 (' zeta 2 = *', zeta(1+nd), 2*nd)
-         call prin2 (' dzeta 1 = *', dzeta, 2*nd)
-         call prin2 (' dzeta 2 = *', dzeta(1+nd), 2*nd)
-         call prin2 (' diag = *', diag, nbk)
+ccc         call prin2 (' zeta 1 = *', zeta, 2*nd)
+ccc         call prin2 (' zeta 2 = *', zeta(1+nd), 2*nd)
+ccc         call prin2 (' dzeta 1 = *', dzeta, 2*nd)
+ccc         call prin2 (' dzeta 2 = *', dzeta(1+nd), 2*nd)
+ccc         call prin2 (' diag = *', diag, nbk)
          do ivort = 1, nvort
             zk_vort(ivort) = (x1_vort(ivort) + eye*x2_vort(ivort))/
      1                       (1.d0 - x3_vort(ivort))
@@ -878,13 +941,6 @@ c---------------
       complex*16 zeta_k(k), eye, zeta(nbk), zk_vort(nvort), zdis
 c
          eye = dcmplx(0.d0,1.d0)
-c
-c a fudge for pole
-ccc         call SPH2CART (0.d0, 1.4d0, 1.d0, cx(1), cy(1), cz(1))
-         do kbod = 1, k
-            zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
-         end do
-ccc         zeta_k(1) = dcmplx(-10.d0,-10.d0)
          call PRIN2 (' zeta_k = *', zeta_k, 2*k)
 c
          istart = 0
@@ -1578,8 +1634,8 @@ c     parameters for DGMRES
 c
 c  Preconditioner flag
 c
-ccc         iwork(4) = -1
-         iwork(4) = 0
+         iwork(4) = -1
+ccc         iwork(4) = 0
 c
 c  Restart flag
 c  
@@ -1623,8 +1679,8 @@ c  unpack soln into U
             end do  
 ccc            call PRIn2 (' density = *', u, nbk)
             do kbod = 1, k
-               call PRINF (' kbod = *', kbod, 1)
-               call PRIn2 ('     u = *', u((kbod-1)*nd+1), nd)
+ccc               call PRINF (' kbod = *', kbod, 1)
+ccc               call PRIn2 ('     u = *', u((kbod-1)*nd+1), nd)
                A_k(kbod) = soln(nbk+kbod)
             end do 
             call PRIN2 (' A_k = *', A_k, k)
@@ -2178,8 +2234,8 @@ ccc         zeta_k(1) = dcmplx(-10.d0,-10.d0)
             umax = max(umax, dabs(u_ex))
 ccc               u_ex = u_ex + 66.d0 
             err = max(err,dabs(u_ex-u_tar(i)))
-            call PRIN2 ('### u_ex = *', u_ex, 1)
-            call PRIN2 ('    u_tar  = *', u_tar(i), 1)
+ccc            call PRIN2 ('### u_ex = *', u_ex, 1)
+ccc            call PRIN2 ('    u_tar  = *', u_tar(i), 1)
          end do
          call PRIN2 (' max abs error in solution = *', err, 1)
          call PRIN2 (' max rel error in solution = *', err/umax, 1)
@@ -2205,7 +2261,7 @@ c
       parameter (nsp = 20*nmax + 20*ng_max)
 c      
       common /geometry/ x_zeta, y_zeta, zeta, dzeta, dsda
-      common /inteqn/ diag, cx, cy, cz
+      common /inteqn/ diag, cx, cy, cz, zeta_k
       common /sys_size/ k, nd, nbk
       common /fasblk2/ schur,wb,ipvtbf
       dimension schur(kmax*kmax),wb(kmax),ipvtbf(kmax)
@@ -2214,9 +2270,6 @@ c
       complex*16 zeta(nmax), dzeta(nmax), zeta_k(kmax), eye
 c
          eye = dcmplx(0.d0,1.d0)
-         do kbod = 1, k
-            zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
-         end do
 c
          job = 0
          call SCHUR_APPLY (zeta,ND,nbk,K,zeta_k,r,z,JOB,
@@ -2385,6 +2438,7 @@ C
       write (6,*) '** PRECONDITIONER  **'
 c
 ccc      NORDER = ND*K + K
+       call prin2 (' zk = *', zk, 2*k)
       istart = nd
       DO IBOD = 2,K
       DO KBOD = 1,K
@@ -2437,7 +2491,7 @@ c
       parameter (nsp = 20*nmax + 20*ng_max)
 c      
       common /geometry/ x_zeta, y_zeta, zeta, dzeta, dsda
-      common /inteqn/ diag_stereo, cx, cy, cz
+      common /inteqn/ diag_stereo, cx, cy, cz, zeta_k
       common /sys_size/ k, nd, nbk
       common /sphere_int/ xs, ys, zs, xn, yn, zn, diag
 c
@@ -2463,12 +2517,6 @@ c
          t0 = etime(timep)
 c
          call PRINI (6,13)
-c  
-c Construct centres of holes in complex plane       
-         do kbod = 1, k
-            zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
-         end do
-ccc         zeta_k(1) = dcmplx(-10.d0,-10.d0)
 c
 ccc         call MATVEC_SPHERE (k, nd, nbk, xs, ys, zs, xn, yn, zn,
 ccc     1                       dsda, diag, cx, cy, cz, A_k, xx, yy)

@@ -287,7 +287,7 @@ c if it is, nudge it a little
                cz_s = 0.99d0
                cx_s = dsqrt(0.5d0*(1-cz_s**2))
                cy_s = cx_s
-               zeta_k(kbod) = (cx_x + eye*cy_s)/(1.d0-cz_s)
+               zeta_k(kbod) = (cx_s + eye*cy_s)/(1.d0-cz_s)
                write (6,*) 'Fudging hole centre a little'
                call prin2 (' old centre, cx = *', cx(kbod), 1)
                call prin2 (' old centre, cy = *', cy(kbod), 1)
