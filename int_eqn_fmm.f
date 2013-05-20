@@ -97,7 +97,7 @@ c Initial Hole Geometry is given by reading in data
 c   if iflag = 1, read in from input.data
 c   if iflag = 2, read in from input_gridhole.data 
 c   if iflag = 3, construct grid of holes
-         iflag = 3
+         iflag = 2
          if ((iflag.eq.1).or.(iflag.eq.2)) then  
             call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
@@ -2207,11 +2207,11 @@ c
          eye = dcmplx(0.d0, 1.d0)
          dalph = 2.d0*pi/nd
 c
-         call PRIn2 (' zeta_k in check_ERROR = *', zeta_k, 2*k)
-         call PRIN2 (' zeta_tar = *', zeta_tar, 2)
+ccc         call PRIn2 (' zeta_k in check_ERROR = *', zeta_k, 2*k)
+ccc         call PRIN2 (' zeta_tar = *', zeta_tar, 2)
 ccc         zeta_k(1) = dcmplx(-10.d0,-10.d0)
-         call prin2 (' zeta_k in check error = *', zeta_k, 2)
-         call prin2 (' zeta_tar = *', zeta_tar, 2*ntar)
+ccc         call prin2 (' zeta_k in check error = *', zeta_k, 2)
+ccc         call prin2 (' zeta_tar = *', zeta_tar, 2*ntar)
          call PRINF (' In CHECK_ERROR_TAR, NTAR = *', ntar, 1)
          umax = 0.d0
          err = 0.d0
