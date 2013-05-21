@@ -124,10 +124,10 @@ c Get stereo graphic projection
      2                nvort, x1_vort, x2_vort, x3_vort, zk_vort)
 c
 c Construct grid on surface of sphere
-         call SURFACE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
-     1                      th_k, phi_k, th_gr, phi_gr, x_gr, y_gr,
-     2                      z_gr, zeta_gr, xzeta_gr, yzeta_gr, igrid,
-     3                      alph_gr, xtar, ytar, ztar, ntar)
+ccc         call SURFACE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
+ccc     1                      th_k, phi_k, th_gr, phi_gr, x_gr, y_gr,
+ccc     2                      z_gr, zeta_gr, xzeta_gr, yzeta_gr, igrid,
+ccc     3                      alph_gr, xtar, ytar, ztar, ntar)
          call TARGET_POINTS (k, nd, nbk, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, xtar, ytar, ztar, ntar,
      2                      xz_tar, yz_tar, zeta_tar)
@@ -153,10 +153,10 @@ c
 c Construct solution on surface grid
 ccc         call SOL_GRID (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
 ccc     1                  zeta, dzeta, igrid, zeta_gr, u_gr)
-         call SOL_GRID_FMM (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
-     1                      zeta, dzeta, igrid, zeta_gr, u_gr,
-     2                      x_zeta, y_zeta, qa, cfield, poten, nsp, 
-     3                      wksp, nvort, vort_k, zk_vort)
+ccc         call SOL_GRID_FMM (nd, k, nbk, nth, nphi, density, A_k, zeta_k,   
+ccc     1                      zeta, dzeta, igrid, zeta_gr, u_gr,
+ccc     2                      x_zeta, y_zeta, qa, cfield, poten, nsp, 
+ccc     3                      wksp, nvort, vort_k, zk_vort)
          call SOL_TAR_FMM (nd, k, nbk, ntar, density, A_k, zeta_k,   
      1                     x_zeta, y_zeta, zeta, dzeta, zeta_tar, u_tar,
      2                     xz_tar, yz_tar, qa, cfield, poten, nsp, 
@@ -301,8 +301,8 @@ c
          call PRIN2 ('    x2_vort = *', x2_vort, nvort)
          call PRIN2 ('    x3_vort = *', x3_vort, nvort)
 c
-         np = 17
-         nt = 27
+         np = 10
+         nt = 12
 ccc         np = 5
 ccc         nt = 5
          k = (np-2)*nt + 2
