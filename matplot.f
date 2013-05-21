@@ -144,7 +144,11 @@ ccc      write (iw,1400) x(1),y(1)
 1400  FORMAT(2D15.6)
       write(iw,*) ' xx = x(:,1);'
       write(iw,*) ' yy = x(:,2);'
+      if (nbod.eq.1) then
       write(iw, *) ' plot(xx,yy,''k'',''LineWidth'',2)'
+       else
+      write(iw, *) ' fill(xx,yy,''k'')'       
+      end if
 ccc      write(iw, *) ' plot(xx,yy,'' . '' )'
       write(iw,*) 'axis equal'
 ccc      write(iw, *) ' plot(x)'
