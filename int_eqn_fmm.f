@@ -122,6 +122,7 @@ c Get stereo graphic projection
          call STEREO (k, nd, nbk, xs, ys, zs, dx, dy, dz, d2x, d2y, d2z,
      1                zeta, dzeta, x_zeta, y_zeta, diag_stereo, 
      2                nvort, x1_vort, x2_vort, x3_vort, zk_vort) 
+       stop
 c
 c Construct grid on surface of sphere
 ccc         call SURFACE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
