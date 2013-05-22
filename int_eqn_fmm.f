@@ -121,8 +121,12 @@ c
 c Get stereo graphic projection
          call STEREO (k, nd, nbk, xs, ys, zs, dx, dy, dz, d2x, d2y, d2z,
      1                zeta, dzeta, x_zeta, y_zeta, diag_stereo, 
+<<<<<<< HEAD
      2                nvort, x1_vort, x2_vort, x3_vort, zk_vort) 
        stop
+=======
+     2                nvort, x1_vort, x2_vort, x3_vort, zk_vort)
+>>>>>>> d6b001c39adba402d8d62acb418d15de56a93bad
 c
 c Construct grid on surface of sphere
 ccc         call SURFACE_GRID (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
@@ -302,8 +306,8 @@ c
          call PRIN2 ('    x2_vort = *', x2_vort, nvort)
          call PRIN2 ('    x3_vort = *', x3_vort, nvort)
 c
-         np = 17
-         nt = 27
+         np = 10
+         nt = 12
 ccc         np = 5
 ccc         nt = 5
          k = (np-2)*nt + 2
@@ -869,7 +873,7 @@ ccc         call prin2 (' diag = *', diag, nbk)
          close (23)
          open (unit = 11, file = 'stereo_geo.m')
          do kbod = 1, k
-            call RSCPLOT (zeta((kbod-1)*nd+1), nd, 1, 11)
+            call RSCPLOT (zeta((kbod-1)*nd+1), nd, kbod, 11)
          end do
          close (11)
 c

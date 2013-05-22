@@ -13,6 +13,7 @@ mv_vortex
 mult_conn
 search_dirs.tmp
 stereo_fmm
+inteqn_fmm
 input_data
 make_world/earth
 .DS_Store
