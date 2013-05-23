@@ -13,7 +13,7 @@ c
 c
 c     ------------------------------------------------------------------
       implicit real*8 (a-h, o-z)
-      parameter (kmax = 500, npmax = 2048, nmax = kmax*npmax)
+      parameter (kmax = 15, npmax = 512, nmax = kmax*npmax)
 c
 c Geometry of holes
       dimension ak(kmax), bk(kmax), th_k(kmax), phi_k(kmax), cx(kmax),
@@ -40,7 +40,7 @@ c target points are used to check accuracy
 cccc
 cccc system matrices
 cccc uncomment this only for smaller problems; memory problems otherwise
-ccc      dimension asphere((nmax+kmax)**2), astereo((nmax+kmax)**2)      
+ccc      dimension astereo((nmax+kmax)**2)      
 c
 c System
       dimension aKu(nmax), density(nmax), A_k(kmax)
@@ -97,7 +97,7 @@ c Initial Hole Geometry is given by reading in data
 c   if iflag = 1, read in from input.data
 c   if iflag = 2, read in from input_gridhole.data 
 c   if iflag = 3, construct grid of holes
-         iflag = 2
+         iflag = 1
          if ((iflag.eq.1).or.(iflag.eq.2)) then  
             call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
@@ -120,7 +120,7 @@ c Construct hole geometry and grid on surface of sphere
 c
 c Get stereo graphic projection
          call STEREO (k, nd, nbk, xs, ys, zs, dx, dy, dz, d2x, d2y, d2z,
-     1                zeta, dzeta, x_zeta, y_zeta, diag_stereo,                      nvort, x1_vort, x2_vort, x3_vort, zk_vort) 
+     1                zeta, dzeta, x_zeta, y_zeta, diag_stereo,      
      2                nvort, x1_vort, x2_vort, x3_vort, zk_vort)
 c
 c Construct grid on surface of sphere
@@ -2245,7 +2245,7 @@ c
 c
       DIMENSION R(N), Z(N)
 c
-      parameter (kmax = 500, npmax = 2048, nmax = kmax*npmax)
+      parameter (kmax = 15, npmax = 512, nmax = kmax*npmax)
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)
@@ -2475,7 +2475,7 @@ c  work.
 c
       implicit double precision (a-h,o-z)
       dimension xx(n), yy(n)
-      parameter (kmax = 500, npmax = 2048, nmax = kmax*npmax)
+      parameter (kmax = 15, npmax = 512, nmax = kmax*npmax)
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)
