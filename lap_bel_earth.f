@@ -23,7 +23,7 @@ c Hole dimensions
       dimension ds(kmax), arcl(kmax)
 c
 c For resampler
-      parameter (ireswork = 100*npmax+100)
+      parameter (ireswork = 9*npmax+100)
       dimension xp(nmax), yp(nmax), x0(nmax), y0(nmax)
       dimension xy(2*npmax), der1(2*npmax), der2(2*npmax), 
      *          der3(2*npmax), fis(npmax), reswork(ireswork)
@@ -89,34 +89,37 @@ c common blocks
       common /fasblk2/ schur,wb,ipvtbf
 c
 c Open output files
-         open (unit = 11, file = 'movie/blob.m')
-         open (unit = 21, file = 'density.m')
-         open (unit = 22, file = 'vort_loc.m')
-         open (unit = 31, file = 'igrid.dat')
-         open (unit = 32, file = 'xgrid.dat')
-         open (unit = 33, file = 'ygrid.dat')
-         open (unit = 34, file = 'zgrid.dat')
-         open (unit = 35, file = 'xzeta_grid.dat')
-         open (unit = 36, file = 'yzeta_grid.dat')
-         open (unit = 37, file = 'movie/u_movie.m')
-         open (unit = 38, file = 'uex_grid.dat')
-         open (unit = 41, file = 'movie/vort_path.m')
-         open (unit = 43, file = 'ugrid.dat')
-         open (unit = 51, file = 'movie/isl_grid.dat')
-         open (unit = 52, file = 'movie/targets.m')
+ccc         open (unit = 11, file = 'movie/blob.m')
+ccc         open (unit = 21, file = 'density.m')
+ccc         open (unit = 22, file = 'vort_loc.m')
+ccc         open (unit = 31, file = 'igrid.dat')
+ccc         open (unit = 32, file = 'xgrid.dat')
+ccc         open (unit = 33, file = 'ygrid.dat')
+ccc         open (unit = 34, file = 'zgrid.dat')
+ccc         open (unit = 35, file = 'xzeta_grid.dat')
+ccc         open (unit = 36, file = 'yzeta_grid.dat')
+ccc         open (unit = 37, file = 'movie/u_movie.m')
+ccc         open (unit = 38, file = 'uex_grid.dat')
+ccc         open (unit = 41, file = 'movie/vort_path.m')
+ccc         open (unit = 43, file = 'ugrid.dat')
+ccc         open (unit = 51, file = 'movie/isl_grid.dat')
+ccc         open (unit = 52, file = 'movie/targets.m')
 c
 c Read hole geometry data
          k = 4
          call PRINI (6,13)
          call READ_IN_DATA (k, np, xp, yp)
          call POLYGON (k, np, n0, xp, yp, x0, y0)
+         call READ_IN_VORTICES (nvort, vort_k, zk_vort, x1_vort, 
+     1                          x2_vort, x3_vort, gamma_tot)
 ccc         call ELLIPSE (k, n0, x0, y0)
 c
 c Get stereo graphic projection - use resampler in stereographic plane
          nvort = 0
          call STEREO (k, n0, npmax, x0, y0, xy, der1, der2, der3, fis, 
      1                reswork, nd, nbk, zeta, dzeta, x_zeta, y_zeta, 
-     2                diag, zeta_k, ds, arcl, xs, ys, zs) 
+     2                diag, zeta_k, ds, arcl, xs, ys, zs)
+        stop 
 ccc         call GEO_TEST (k, n0, npmax, x0, y0, xy, der1, der2, der3, fis, 
 ccc     1                reswork, nd, nbk, zeta, dzeta, x_zeta, y_zeta, 
 ccc     2                diag, zeta_k, ds, arcl, xs, ys, zs) 
@@ -312,6 +315,49 @@ c
 c
 c
 c---------------
+      subroutine READ_IN_VORTICES (nvort, vort_k, zk_vort, x1_vort, 
+     1                             x2_vort, x3_vort, gamma_tot)
+c---------------
+c  Read in vortices and assign random strengths to them
+      implicit real*8 (a-h,o-z)
+      dimension vort_k(*), x1_vort(*), x2_vort(*), x3_vort(*)
+      complex*16 zk_vort(*)
+c
+         pi = 4.d0*datan(1.d0)
+c 
+         open (unit = 21, file = 'vort_loc.dat')
+         read (21,*) nvort
+         do ivort = 1, nvort
+            read (21,*) xz, yz
+            zk_vort(ivort) = dcmplx(xz,yz)
+            call STEREO_TO_PHYS (zk_vort(ivort), x1_vort(ivort),
+     1                           x2_vort(ivort), x3_vort(ivort))
+         end do
+c
+c assign random vortex strengths on (-2pi,2pi)
+         call zufalli (0)
+         call zufall (nvort,vort_k)
+         gamma_tot = 0.d0
+         do ivort = 1, nvort
+            vort_k(ivort) = -2.d0*pi + 4*pi*vort_k(ivort)
+            gamma_tot = gamma_tot + vort_k(ivort)
+         end do
+         close (21)
+c
+c save to *.m file for plotting
+         open (unit=22, file = 'vort_loc.m')
+         call RSC_STAR_PLOT(zk_vort,nvort,22)
+         close (22)
+c
+         call prin2 (' gamma_tot = *', gamma_tot, 1)
+         call prin2 (' vort_k = *', vort_k, nvort)
+         call prin2 (' zk_vort = *', zk_vort, 2*nvort)
+c
+      return
+      end
+c
+c
+c---------------
       subroutine POLYGON (k, np, n0, xp, yp, x0, y0)
 c---------------
 c  Constructs a polygon out of vertices stored in xp, yp
@@ -321,7 +367,7 @@ c  fills in each line segment with ns points
 c
 c  ns is the number of points per line segment
          ns = 30
-         open (unit = 25, file = 'polygon.m')
+         open (unit = 15, file = 'polygon.m')
          call PRINF (' np = *', np, k)
 c
 c  loop over all the bodies
@@ -935,10 +981,11 @@ ccc         NMIN = 2
          NDERS = 2
 c
 c  open file for zeta_k
-         open (unit = 26, file = 'zeta_k.m', status = 'old')
+         open (unit = 26, file = 'make_world/zeta_k.dat', 
+     1         status = 'old')
 c
 c  open file for plotting resampled curve
-         open (unit = 25, file = 'coast.m')
+         open (unit = 25, file = 'geo_stereo.m')
          open (unit = 27, file = 'geo_3d.m')
 c
 c  loop over each body
@@ -951,7 +998,7 @@ c  loop over each body
             nbk = nbk+nd(kbod)
             call RSRESA (ier, x0(istart0+1), y0(istart0+1), n0(kbod),  
      1                   nmin, nders, xy, der1, der2, der3, nd(kbod),   
-     2                   fis, ds(kbod), acc, err, work, ltot)
+     2                   fis, ds(kbod), acc, err, reswork, ltot)
             if (ier.ne.0) then
                call PRINF ('ERROR IN RESAMPLER, IER = *', ier, 1)
                stop
