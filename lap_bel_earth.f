@@ -89,56 +89,44 @@ c common blocks
       common /fasblk2/ schur,wb,ipvtbf
 c
 c Open output files
-ccc         open (unit = 11, file = 'movie/blob.m')
-ccc         open (unit = 21, file = 'density.m')
-ccc         open (unit = 22, file = 'vort_loc.m')
-ccc         open (unit = 31, file = 'igrid.dat')
-ccc         open (unit = 32, file = 'xgrid.dat')
-ccc         open (unit = 33, file = 'ygrid.dat')
-ccc         open (unit = 34, file = 'zgrid.dat')
-ccc         open (unit = 35, file = 'xzeta_grid.dat')
-ccc         open (unit = 36, file = 'yzeta_grid.dat')
-ccc         open (unit = 37, file = 'movie/u_movie.m')
-ccc         open (unit = 38, file = 'uex_grid.dat')
-ccc         open (unit = 41, file = 'movie/vort_path.m')
-ccc         open (unit = 43, file = 'ugrid.dat')
-ccc         open (unit = 51, file = 'movie/isl_grid.dat')
-ccc         open (unit = 52, file = 'movie/targets.m')
 c
 c Read hole geometry data
          k = 4
          call PRINI (6,13)
          call READ_IN_DATA (k, np, xp, yp)
          call POLYGON (k, np, n0, xp, yp, x0, y0)
-         call READ_IN_VORTICES (nvort, vort_k, zk_vort, x1_vort, 
-     1                          x2_vort, x3_vort, gamma_tot)
+c
+c If we are running an example with point vortices, set ivortex = 1
+c otherwise, ivortex = 0
+         ivortex = 0
+         if (ivortex.eq.1) then 
+            call READ_IN_VORTICES (nvort, vort_k, zk_vort, x1_vort, 
+     1                             x2_vort, x3_vort, gamma_tot)
+           else
+            nvort = 0
+            gamma_tot = 0.d0
+         end if
 ccc         call ELLIPSE (k, n0, x0, y0)
 c
 c Get stereo graphic projection - use resampler in stereographic plane
-         nvort = 0
          call STEREO (k, n0, npmax, x0, y0, xy, der1, der2, der3, fis, 
      1                reswork, nd, nbk, zeta, dzeta, x_zeta, y_zeta, 
      2                diag, zeta_k, ds, arcl, xs, ys, zs)
-        stop 
 ccc         call GEO_TEST (k, n0, npmax, x0, y0, xy, der1, der2, der3, fis, 
 ccc     1                reswork, nd, nbk, zeta, dzeta, x_zeta, y_zeta, 
 ccc     2                diag, zeta_k, ds, arcl, xs, ys, zs) 
-         call TARGET_POINTS (ntar, xz_tar, yz_tar, zeta_tar)
-         nx = 500
-         ny = 500
+         if (ivortex.eq.0) then
+            call TARGET_POINTS (ntar, xz_tar, yz_tar, zeta_tar)
+         end if
+         nx = 100
+         ny = 100
          call STEREO_GRID (k, nd, nbk, nx, ny, ds, x_zeta, y_zeta, 
      1                     zeta, dzeta, ntarg, xzeta_gr, yzeta_gr,
      *                     zeta_gr, igrid, qa, cfield, poten, nsp, wksp) 
          call SURFACE_GRID (nx, ny, xzeta_gr, yzeta_gr, x_gr, y_gr,
-     *                      z_gr) 
+     *                      z_gr, igrid) 
 ccc         call DCFFTI (nd(1), wsave)
 ccc         call RSCPLOT (zk_vort, nvort, 1, 41)
-            call DUMP (nx, ny, u_gr, igrid, 0, 31)
-            call DUMP (nx, ny, x_gr, igrid, 1, 32)
-            call DUMP (nx, ny, y_gr, igrid, 1, 33)
-            call DUMP (nx, ny, z_gr, igrid, 1, 34)
-            call DUMP (nx, ny, xzeta_gr, igrid, 1, 35)
-            call DUMP (nx, ny, yzeta_gr, igrid, 1, 36)
 ccc         stop
 ccc         call PRIn2 (' diag_stereo = *', diag_stereo, nbk)
 c
@@ -151,8 +139,8 @@ c Time loop for vortex path
             call PRIN2 (' time = *', time, 1)       
 c
 c Construct the RHS and solve
-         call GETRHS (k, nd, nbk, zeta_k, zeta, rhs,
-     1                nvort, vort_k, zk_vort, gamma_tot)
+         call GETRHS (k, nd, nbk, zeta_k, zeta, rhs, nvort, vort_k, 
+     1                zk_vort, gamma_tot, ivortex)
 ccc         call PRIN2 (' rhs = *', rhs, nbk)
 c
 c Construct system matrices to be dumped into matlab
@@ -173,13 +161,15 @@ ccc     1                  zeta, dzeta, igrid, zeta_gr, u_gr)
 ccc         if (mod(it,100).eq.0) then
          call SOL_GRID_FMM (nd, k, nbk, nx, ny, ds, density, A_k,    
      1                      zeta_k, zeta, dzeta, igrid, zeta_gr,  
-     2                      u_gr, x_zeta, y_zeta, qa, cfield,   
-     3                      poten, nsp, wksp, nvort, vort_k, zk_vort)
-         call DUMP (nx, ny, u_gr, igrid, 1, 43)
-         call SOL_TAR_FMM (nd, k, nbk, ntar, ds, density, A_k, zeta_k,   
-     1                     x_zeta, y_zeta, zeta, dzeta, zeta_tar, u_tar,
-     2                     xz_tar, yz_tar, qa, cfield, poten, nsp, 
-     3                     wksp, nvort, vort_k, zk_vort)
+     2                      u_gr, x_zeta, y_zeta, qa, cfield, poten,   
+     3                      nsp, wksp, nvort, vort_k, zk_vort, ivortex)
+         if (ivortex.eq.0) then
+            call SOL_TAR_FMM (nd, k, nbk, ntar, ds, density, A_k,    
+     1                     zeta_k, x_zeta, y_zeta, zeta, dzeta, 
+     2                     zeta_tar, u_tar, xz_tar, yz_tar, qa, cfield,  
+     3                     poten, nsp, wksp, nvort, vort_k, zk_vort, 
+     4                     ivortex)
+         end if
 c
 c for a vortex in presence of cap with radius r0, check solution
 ccc         call SOL_VORT_CHECK (nd, k, nbk, nth, nphi, nvort, zeta_gr,  
@@ -196,8 +186,6 @@ ccc     1                  zeta_k, vort_k, zk_vort, zvel, zf, wsave)
 ccc         do ivort = 1, nvort
 ccc            zk_vort(ivort) = zk_vort(ivort) + dt*zvel(ivort)
 ccc         end do
-         call PRIn2 (' zk_vort = *', zk_vort, 2*nvort)
-         call RSCPLOT (zk_vort, nvort, 1, 41)
          end do
          tend = etime(timep)
          call PRIN2 (' TOTAL CPU TIME = *', tend-tbeg, 1)
@@ -206,8 +194,10 @@ c calculate
 c
 c Check error in solution
 ccc         call CHECK_ERROR_GRID (k, nx, ny, zeta_k, zeta_gr, igrid, u_gr)
-         call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
-     1                         u_tar)
+         if (ivortex.eq.0) then
+            call CHECK_ERROR_TAR (nd, k, nbk, ntar, zeta_k, zeta_tar,  
+     1                            u_tar)
+         end if
 c
          close (31)
          close (32)
@@ -342,6 +332,7 @@ c assign random vortex strengths on (-2pi,2pi)
             vort_k(ivort) = -2.d0*pi + 4*pi*vort_k(ivort)
             gamma_tot = gamma_tot + vort_k(ivort)
          end do
+         call PRIN2 (' gamma_tot = *', gamma_tot, 1)
          close (21)
 c
 c save to *.m file for plotting
@@ -367,7 +358,7 @@ c  fills in each line segment with ns points
 c
 c  ns is the number of points per line segment
          ns = 30
-         open (unit = 15, file = 'polygon.m')
+         open (unit = 25, file = 'polygon.m')
          call PRINF (' np = *', np, k)
 c
 c  loop over all the bodies
@@ -918,6 +909,16 @@ ccc                  call prin2 (' y = *', y, 1)
             end do
          end do
 c
+         open (unit = 31, file = 'igrid.dat')
+         open (unit = 35, file = 'xzeta_grid.dat')
+         open (unit = 36, file = 'yzeta_grid.dat')
+         call DUMP (nx, ny, xzeta_gr, igrid, 0, 31)
+         call DUMP (nx, ny, xzeta_gr, igrid, 1, 35)
+         call DUMP (nx, ny, yzeta_gr, igrid, 1, 36)
+         close (31)
+         close (35)
+         close (36)
+c
       return
       end
 c
@@ -925,11 +926,11 @@ c
 c********1*********2*********3*********4*********5*********6*********7**
 c
       subroutine SURFACE_GRID (nx, ny, xzeta_gr, yzeta_gr, x_gr, y_gr,
-     *                         z_gr)
+     *                         z_gr, igrid)
 c---------------
       implicit real*8 (a-h,o-z)
       dimension xzeta_gr(nx,ny), yzeta_gr(nx,ny), x_gr(nx,ny),
-     1          y_gr(nx,ny), z_gr(nx,ny)
+     1          y_gr(nx,ny), z_gr(nx,ny), igrid(nx,ny)
       complex*16 eye, zeta
 c
          pi = 4.d0*datan(1.d0)
@@ -944,6 +945,16 @@ c
                z_gr(i,j) = -z_gr(i,j)
             end do
          end do
+c
+         open (unit = 32, file = 'xgrid.dat')
+         open (unit = 33, file = 'ygrid.dat')
+         open (unit = 34, file = 'zgrid.dat')
+         call DUMP (nx, ny, x_gr, igrid, 1, 32)
+         call DUMP (nx, ny, y_gr, igrid, 1, 33)
+         call DUMP (nx, ny, z_gr, igrid, 1, 34)
+         close (32)
+         close (33)
+         close (34)
 c
       return
       end      
@@ -1261,8 +1272,51 @@ c
 c
 c********1*********2*********3*********4*********5*********6*********7**
 c
-      subroutine GETRHS (k, nd, nbk, zeta_k, zeta, rhs,
-     1                   nvort, vort_k, zk_vort, gamma_tot)
+      subroutine POINT_VORTEX (zeta, zeta_k, psi)
+c---------------
+c  evaluates G(zeta,zeta_k) from paper (i.e. Green's function in 
+c  complex plane)
+c
+      implicit real*8 (a-h,o-z) 
+      complex*16 zeta, zeta_k, zdis 
+c   
+         pi = 4.d0*datan(1.d0)
+c
+         zdis = zeta - zeta_k
+         az1 = (cdabs(zeta))**2
+         az2 = (cdabs(zeta_k))**2
+         arg = 2.d0*dreal(zdis*conjg(zdis)/((1.d0+az1)*(1.d0+az2)))
+         psi = -dlog(arg)/(4.d0*pi)
+c
+      return
+      end
+c
+c
+c********1*********2*********3*********4*********5*********6*********7**
+c
+      subroutine GRAD_POINT_VORTEX (zeta, zeta_k, zgrad)
+c---------------
+c  evaluates d G(zeta,zeta_k)/dz for velocity calculation 
+c
+      implicit real*8 (a-h,o-z) 
+      complex*16 zeta, zeta_k, zdis , zgrad
+c   
+         pi = 4.d0*datan(1.d0)
+c
+         zdis = zeta - zeta_k
+         dis = cdabs(zdis)
+         az1 = (cdabs(zeta))**2
+         zgrad = -1.d0/zdis + dconjg(zeta)/(1.d0+az1)
+         zgrad = zgrad/(4.d0*pi)
+c
+      return
+      end
+c
+c
+c********1*********2*********3*********4*********5*********6*********7**
+c
+      subroutine GETRHS (k, nd, nbk, zeta_k, zeta, rhs, nvort, vort_k,
+     1                   zk_vort, gamma_tot, ivortex)
 c---------------
       implicit real*8 (a-h,o-z)
       dimension rhs(nbk), xs(nbk), ys(nbk), nd(k), 
@@ -1276,22 +1330,25 @@ c
          do kbod = 1, k
             do j = 1, nd(kbod)
                psi = 0.d0
-               do mbod = 1, k
-                  psi = psi + 1.d0/(zeta(istart+j)-zeta_k(mbod)) 
+               if (ivortex.eq.0) then 
+                  do mbod = 1, k
+                     psi = psi + 1.d0/(zeta(istart+j)-zeta_k(mbod)) 
      1                   + dconjg(1.d0/(zeta(istart+j)-zeta_k(mbod)))
-               end do
-ccc               do ivort = 1, nvort
-ccc                  zdis = zeta(istart+j) - zk_vort(ivort)
-ccc                  az1 = (cdabs(zeta(istart+j)))**2
-ccc                  az2 = (cdabs(zk_vort(ivort)))**2
-ccc                  arg = dreal(zdis*conjg(zdis)/((1.d0+az1)*(1.d0+az2)))
-ccc                  psi = psi + vort_k(ivort)*dlog(arg)
-ccc               end do
+                  end do
+                 else
+                  psi_vort = 0.d0
+                  do ivort = 1, nvort
+                     call POINT_VORTEX (zeta(istart+j), zk_vort(ivort), 
+     1                                  psi)
+                     psi_vort = psi_vort + vort_k(ivort)*psi
+                  end do
+                  psi =  - psi_vort
+               end if
                rhs(istart+j) = psi 
             end do
             istart = istart+nd(kbod)
          end do
-         rhs(nbk+1) = gamma_tot
+         rhs(nbk+1) = -gamma_tot
          do kbod = 2, k
             rhs(nbk+kbod) = 0.d0
          end do
@@ -1541,11 +1598,8 @@ c Fix up field
 c
 c Add on log singularities
                do mbod = 1, k
-                  zdis = zeta(istart+i) - zeta_k(mbod)
-                  rad = 2.d0*(cdabs(zdis))**2
-     1                      /((1+(cdabs(zeta(istart+i)))**2)
-     2                     *((1+(cdabs(zeta_k(mbod)))**2)))
-                  w(istart+i) = w(istart+i) + A_k(mbod)*0.5d0*dlog(rad)
+                  call POINT_VORTEX (zeta(istart+i), zeta_k(mbod), circ)
+                  w(istart+i) = w(istart+i) + A_k(mbod)*circ
                end do
             end do
             istart = istart+nd(kbod)
@@ -2000,9 +2054,9 @@ c
 c
 c---------------
       subroutine SOL_GRID_FMM (nd, k, nbk, nx, ny, ds, u, A_k, zeta_k,   
-     1                         zeta, dzeta, igrid, zeta_gr, 
-     2                         u_gr, x_zeta, y_zeta, qa, cfield, poten,  
-     3                         nsp, wksp, nvort, vort_k, zk_vort)
+     1                         zeta, dzeta, igrid, zeta_gr, u_gr, 
+     2                         x_zeta, y_zeta, qa, cfield, poten, nsp,  
+     3                         wksp, nvort, vort_k, zk_vort, ivortex)
 c---------------
 c
       implicit real*8 (a-h,o-z)
@@ -2018,6 +2072,7 @@ c
 c
          pi = 4.d0*datan(1.d0)
          eye = dcmplx(0.d0, 1.d0)
+         call PRINF (' in SOL_GRID_FMM, ivortex = *', ivortex, 1)
 c
 c pack zeta and zeta_gr into x_zeta and y_zeta
          istart = 0
@@ -2086,12 +2141,19 @@ c Fix up field
                   ij = ij + 1           
                   u_gr(i,j) = dimag(cfield(ij) - zQsum)
                   do kbod = 1, k
-                     zdis = zeta_gr(i,j) - zeta_k(kbod)
-                     rad = 2.d0*
-     1                  (cdabs(zdis))**2/((1+(cdabs(zeta_gr(i,j)))**2)
-     2                  *((1+(cdabs(zeta_k(kbod)))**2)))
-                     u_gr(i,j) = u_gr(i,j) + A_k(kbod)*0.5d0*dlog(rad)
+                     call POINT_VORTEX (zeta_gr(i,j), zeta_k(kbod), 
+     1                                  circ)
+                     u_gr(i,j) = u_gr(i,j) + A_k(kbod)*circ
                   end do
+                  if (ivortex.eq.1) then
+                     psi_vort = 0.d0
+                     do ivort = 1, nvort
+                        call POINT_VORTEX (zeta_gr(i,j), zk_vort(ivort), 
+     1                                     psi)
+                        psi_vort = psi_vort + vort_k(ivort)*psi
+                     end do
+                     u_gr(i,j) = u_gr(i,j) + psi_vort 
+                  end if
                   umax = max(umax,u_gr(i,j))
                   umin = min(umin,u_gr(i,j))
                  else
@@ -2102,32 +2164,14 @@ c Fix up field
          call PRIN2 (' Max solution = *', umax, 1)
          call PRIN2 (' Min solution = *', umin, 1)
 c
-c Add in vortex singularities
-ccc         call PRIN2 (' zk_vort = *', zk_vort, 2*nvort)
-         call PRIN2 (' vort_k = *', vort_k, nvort)
-         do i = 1, nx
-            do j = 1, ny
-cccccc               u_gr(i,j) = 0.d0
-               if (igrid(i,j).eq.1) then   
-                  psi = 0.d0  
-                  do ivort = 1, nvort
-                     zdis = zeta_gr(i,j) - zk_vort(ivort)
-                     az1 = (cdabs(zeta_gr(i,j)))**2
-                     az2 = (cdabs(zk_vort(ivort)))**2
-                     arg = dreal(zdis*conjg(zdis)
-     1                        /((1.d0+az1)*(1.d0+az2)))
-                     psi = psi + vort_k(ivort)*dlog(arg)
-                  end do
-cccccc                  call PRIN2 (' psi = *', psi, 1)
-                  u_gr(i,j) = u_gr(i,j) - psi
-               end if
-            end do
-         end do
-c
          tend = etime(timep)
 ccc         call PRIN2 (' poten = *', poten, n)
          call PRIN2 (' TIME FOR FMM  ON GRID = *',tend-tbeg,1)
 ccc         call PRIN2 (' cfield = *', cfield, 2*n)
+c
+         open (unit=43, file = 'ugrid.dat')
+         call DUMP (nx, ny, u_gr, igrid, 1, 43)
+         close (43)
 c
       return
       end
@@ -2137,7 +2181,8 @@ c---------------
       subroutine SOL_TAR_FMM (nd, k, nbk, ntar, ds, u, A_k, zeta_k,   
      1                        x_zeta, y_zeta, zeta, dzeta, zeta_tar, 
      2                        u_tar, xz_tar, yz_tar, qa, cfield, poten,  
-     3                        nsp, wksp, nvort, vort_k, zk_vort)
+     3                        nsp, wksp, nvort, vort_k, zk_vort, 
+     4                        ivortex)
 c---------------
 c
       implicit real*8 (a-h,o-z)
@@ -2222,31 +2267,18 @@ c Fix up field
             u_tar(i) = dimag(cfield(ij) - zQsum)
             ztar = dcmplx(xz_tar(i),yz_tar(i))
             do kbod = 1, k
-               zdis = ztar - zeta_k(kbod)
-                     rad = 
-     1              (cdabs(zdis))**2/((1+(cdabs(ztar))**2)
-     2                  *((1+(cdabs(zeta_k(kbod)))**2)))
-                     u_tar(i) = u_tar(i) + A_k(kbod)*dlog(rad)
+               call POINT_VORTEX (ztar, zeta_k(kbod), circ)
+               u_tar(i) = u_tar(i) + A_k(kbod)*circ
             end do
+            if (ivortex.eq.1) then
+               do ivort = 1, nvort
+                  call POINT_VORTEX (ztar, zk_vort(ivort), psi)
+                  u_tar(i) = u_tar(i) + vort_k(ivort)*psi
+               end do
+            end if
          end do
 c
-c Add in vortex singularities
-ccc         call PRIN2 (' zk_vort = *', zk_vort, 2*nvort)
-ccc         call PRIN2 (' vort_k = *', vort_k, nvort)
-         do i = 1, ntar
-            psi = 0.d0  
-            ztar = dcmplx(xz_tar(i),yz_tar(i))
-            do ivort = 1, nvort
-               zdis = ztar - zk_vort(ivort)
-               az1 = (cdabs(ztar))**2
-               az2 = (cdabs(zk_vort(ivort)))**2
-               arg = dreal(zdis*conjg(zdis)
-     1                        /((1.d0+az1)*(1.d0+az2)))
-               psi = psi + vort_k(ivort)*dlog(arg)
-               u_tar(i) = u_tar(i) - psi
-            end do
-         end do
-         call prin2 (' u_tar = *', u_tar, ntar)
+ccc         call prin2 (' u_tar = *', u_tar, ntar)
 c
          tend = etime(timep)
 ccc         call PRIN2 (' poten = *', poten, n)
@@ -2425,7 +2457,7 @@ c
       common /inteqn/ diag, cx, cy, cz
       common /sys_size/ k, nd, nbk
       common /fasblk2/ schur,wb,ipvtbf
-      dimension schur(kmax*kmax),wb(kmax),ipvtbf(kmax)
+      dimension schur(kmax*kmax),wb(kmax),ipvtbf(kmax), nd(kmax)
       dimension x_zeta(nmax+ng_max), y_zeta(nmax+ng_max), dsda(nmax),  
      1          diag(nmax), cx(kmax), cy(kmax), cz(kmax)
       complex*16 zeta(nmax), dzeta(nmax), zeta_k(kmax), eye
@@ -2447,7 +2479,7 @@ c
       SUBROUTINE SCHUR_APPLY (z,ND,nbk,K,zk,U,W,JOB,
      1                        SCHUR,LDS,BNEW,IPVTBF)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER *4 IPVTBF(k)
+      INTEGER *4 IPVTBF(k), nd(k)
       DIMENSION U(*),W(*)
       DIMENSION SCHUR(k,k),BNEW(k)
       complex*16 zk(k), z(nbk), zdis
@@ -2503,15 +2535,15 @@ C
 C     form rhs corresponding to Schur complement.
 C
 c
-       ISTART = nd
+       ISTART = nd(1)
        bnew(1) = u(nbk+1)
        DO KBOD = 2,K
          SUM1 = 0.0d0
-         DO i = 1,ND
+         DO i = 1,ND(kbod)
              SUM1 = SUM1 + U(ISTART+i)
          end do
          BNEW(KBOD) = U(nbk+kbod)-2.d0*SUM1
-         ISTART = ISTART+ND
+         ISTART = ISTART+ND(kbod)
       end do
 c
 C
@@ -2526,17 +2558,15 @@ C     solve for remaining variables.
 C
          ISTART = 0
          DO 2500 NBOD = 1,K
-         DO 2400 I = 1,ND
+         DO 2400 I = 1,ND(NBOD)
             SUM1 = 0.0d0
 	    DO 2350 KBOD = 1,K
-               dis = cdabs(z(istart+i) - zk(kbod))
-	       arg_log = 2.d0*dis**2/((1+cdabs(z(istart+i))**2)
-     1                          *(1+cdabs(zk(kbod))**2))
-               SUM1 = SUM1 + 0.5d0*dlog(arg_log)*bnew(kbod)
+               call POINT_VORTEX (z(istart+i), zk(kbod), circ)
+               SUM1 = SUM1 + circ*bnew(kbod)
 2350        CONTINUE
             W(ISTART+i) = 2.d0*U(ISTART+i) - 2.d0*SUM1
 2400     CONTINUE
-         ISTART = ISTART+ND
+         ISTART = ISTART+ND(NBOD)
 2500     CONTINUE
 C
 ccc      call prin2(' w is *',w,norder)
@@ -2547,7 +2577,7 @@ c*********************************************
 c
       SUBROUTINE SCHUR_FACTOR (z,ND,NMAX,K,zk,SCHUR,WB,IPVTBF)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
-      INTEGER *4 IPVTBF(k)
+      INTEGER *4 IPVTBF(k), nd(k)
       DIMENSION SCHUR(k,k),WB(k)
       complex*16 zk(k), z(nmax), zdis
 C
@@ -2602,19 +2632,17 @@ C
       write (6,*) '** PRECONDITIONER  **'
 c
 ccc      NORDER = ND*K + K
-      istart = nd
+      istart = nd(1)
       DO IBOD = 2,K
       DO KBOD = 1,K
          SUM1 = 0.0d0
-         DO i = 1,ND
-            dis = cdabs(z(istart+i) - zk(kbod))
-	    arg_log = 2.d0*dis**2/((1+cdabs(z(istart+i))**2)
-     1                          *(1+cdabs(zk(kbod))**2))
-            SUM1 = SUM1 + 0.5d0*dlog(arg_log)
+         DO i = 1,ND(kbod)
+            call POINT_VORTEX (z(istart+i), zk(kbod), circ)
+            SUM1 = SUM1 + circ
          end do
          SCHUR(IBOD,KBOD) = -2.d0*SUM1
       end do
-      istart = istart+nd
+      istart = istart+nd(kbod)
       end do
 C
 C     Next construct last row of Schur complement.
