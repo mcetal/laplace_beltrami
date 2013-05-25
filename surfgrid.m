@@ -1,5 +1,5 @@
 close all; clear;
-NX = 500; NY = 500;
+NX = 1000; NY = 1000;
 load igrid.dat
  a = zeros(NX,NY);
  a(:) = igrid(:);
@@ -48,7 +48,7 @@ surf(xgrid,ygrid,zgrid,ugrid)
    geo_3d
    caxis ([-8 6])
 figure(3)
-vc = [-8:.1:6];
+vc = [-8:.2:6];
 contour(xzeta_grid,yzeta_grid,ugrid,vc)
 hold on
 geo_stereo

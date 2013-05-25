@@ -98,10 +98,14 @@ c Read hole geometry data
 c
 c If we are running an example with point vortices, set ivortex = 1
 c otherwise, ivortex = 0
-         ivortex = 0
+         ivortex = 1
          if (ivortex.eq.1) then 
+c 
+c If irun=1, random vortex strengths will be generated and saved to a
+c file. If irun = 2, this file will be read in.
+            irun = 2
             call READ_IN_VORTICES (nvort, vort_k, zk_vort, x1_vort, 
-     1                             x2_vort, x3_vort, gamma_tot)
+     1                             x2_vort, x3_vort, gamma_tot, irun)
            else
             nvort = 0
             gamma_tot = 0.d0
@@ -118,8 +122,8 @@ ccc     2                diag, zeta_k, ds, arcl, xs, ys, zs)
          if (ivortex.eq.0) then
             call TARGET_POINTS (ntar, xz_tar, yz_tar, zeta_tar)
          end if
-         nx = 100
-         ny = 100
+         nx = 1000
+         ny = 1000
          call STEREO_GRID (k, nd, nbk, nx, ny, ds, x_zeta, y_zeta, 
      1                     zeta, dzeta, ntarg, xzeta_gr, yzeta_gr,
      *                     zeta_gr, igrid, qa, cfield, poten, nsp, wksp) 
@@ -147,7 +151,7 @@ c Construct system matrices to be dumped into matlab
          write (6,*) 'here am i'
          call SOLVE (nd, k, kmax, nbk, rhs, soln, density, A_k, gmwork, 
      1               lrwork, igwork, liwork, maxl, schur, wb,
-     2               ipvtbf, zeta, zeta_k)
+     2               ipvtbf, zeta, zeta_k, ds)
 cccc
 cccc Overresolve the data on the boundary (for plotting purposes only)
 ccc         call RESAMPLE (nd,k,nbk,nsamp,h,z,dz,xat,yat,u,xsamp,
@@ -306,7 +310,7 @@ c
 c
 c---------------
       subroutine READ_IN_VORTICES (nvort, vort_k, zk_vort, x1_vort, 
-     1                             x2_vort, x3_vort, gamma_tot)
+     1                             x2_vort, x3_vort, gamma_tot, irun)
 c---------------
 c  Read in vortices and assign random strengths to them
       implicit real*8 (a-h,o-z)
@@ -323,17 +327,29 @@ c
             call STEREO_TO_PHYS (zk_vort(ivort), x1_vort(ivort),
      1                           x2_vort(ivort), x3_vort(ivort))
          end do
+         close (21)
 c
 c assign random vortex strengths on (-2pi,2pi)
-         call zufalli (0)
-         call zufall (nvort,vort_k)
-         gamma_tot = 0.d0
-         do ivort = 1, nvort
-            vort_k(ivort) = -2.d0*pi + 4*pi*vort_k(ivort)
-            gamma_tot = gamma_tot + vort_k(ivort)
-         end do
+         open (unit=22, file = 'vortex_strength.dat')
+         if (irun.eq.1) then 
+            call zufalli (0)
+            call zufall (nvort,vort_k)
+            gamma_tot = 0.d0
+            do ivort = 1, nvort
+               vort_k(ivort) = -2.d0*pi + 4*pi*vort_k(ivort)
+               write (22,'(e20.13,$)')(vort_k(ivort))
+               write (22,'(a)')  ''
+               gamma_tot = gamma_tot + vort_k(ivort)
+            end do
+           else
+            gamma_tot = 0.d0
+            do ivort = 1, nvort
+               read(22,*) vort_k(ivort)
+               gamma_tot = gamma_tot + vort_k(ivort)
+            end do
+         end if
          call PRIN2 (' gamma_tot = *', gamma_tot, 1)
-         close (21)
+         close(22)
 c
 c save to *.m file for plotting
          open (unit=22, file = 'vort_loc.m')
@@ -763,14 +779,14 @@ c
          eye = dcmplx(0.d0,1.d0)
 c
 C  DIMENSIONS OF EMBEDDING RECTANGLE
-         call MINMAX (nbk, x_zeta, xl, xr)
-         call MINMAX (nbk, y_zeta, yb, yt)
+ccc         call MINMAX (nbk, x_zeta, xl, xr)
+ccc         call MINMAX (nbk, y_zeta, yb, yt)
 cccc
 cccc  bounding box for the continents
-ccc         xl = -3.d0
-ccc         xr = 3.d0
-ccc         yb = -2.d0
-ccc         yt = 3.4d0
+         xl = -4.d0
+         xr = 4.d0
+         yb = -4.d0
+         yt = 4.d0
 c
          call prin2 ('xmin = *', xl, 1)
          call prin2 ('xmax = *', xr, 1)
@@ -1802,14 +1818,14 @@ c
 c---------------
       subroutine SOLVE (nd, k, kmax, nbk, rhs, soln, u, A_k, rwork, 
      1                  lrwork, iwork, liwork, maxl, schur, bnew,
-     2                  ipvtbf, z, zk)
+     2                  ipvtbf, z, zk, ds)
 c---------------
 c
       implicit real*8 (a-h,o-z)
       external MATVEC_LAPL, MSOLVE
 c
 c  System
-      dimension nd(k), soln(*), rhs(*), u(nbk), A_k(k)
+      dimension nd(k), soln(*), rhs(*), u(nbk), A_k(k), ds(k)
 c
 c  DGMRES work arrays
       dimension rwork(lrwork),iwork(liwork)
@@ -1830,7 +1846,7 @@ c
 c
 c     parameters for DGMRES
          itol = 0
-         tol = 1.0d-10
+         tol = 1.0d-11
          isym = 0
          iwork(1) = maxl
          do i=2,liwork
@@ -1839,17 +1855,17 @@ c     parameters for DGMRES
 c
 c  Preconditioner flag
 c
-ccc         iwork(4) = -1
-         iwork(4) = 0
+         iwork(4) = -1
+ccc         iwork(4) = 0
 c
 c  Restart flag
 c  
          iwork(5) = 5      
 c
 c  factor preconditioner
-ccc         t0 = etime(timep)
-ccc         call SCHUR_FACTOR (z,ND,nbk,K,zk,SCHUR,bnew,IPVTBF)
-ccc         t1 = etime(timep)
+         t0 = etime(timep)
+         call SCHUR_FACTOR (z, ds, ND,nbk,K,zk,SCHUR,bnew,IPVTBF)
+         t1 = etime(timep)
          call prin2 (' time in preconditioner = *', t1-t0, 1)
 c
 c     provide initial guess soln
@@ -2452,22 +2468,19 @@ c
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)
-c      
-      common /geometry/ x_zeta, y_zeta, zeta, dzeta, dsda
-      common /inteqn/ diag, cx, cy, cz
+
+      common /geometry/ x_zeta, y_zeta, zeta, dzeta, zeta_k
+      common /inteqn/ diag, ds, arcl
       common /sys_size/ k, nd, nbk
       common /fasblk2/ schur,wb,ipvtbf
       dimension schur(kmax*kmax),wb(kmax),ipvtbf(kmax), nd(kmax)
       dimension x_zeta(nmax+ng_max), y_zeta(nmax+ng_max), dsda(nmax),  
-     1          diag(nmax), cx(kmax), cy(kmax), cz(kmax)
+     1          diag(nmax), ds(kmax), arcl(kmax)
       complex*16 zeta(nmax), dzeta(nmax), zeta_k(kmax), eye
 c
-         eye = dcmplx(0.d0,1.d0)
-         do kbod = 1, k
-            zeta_k(kbod) = (cx(kbod) + eye*cy(kbod))/(1.d0-cz(kbod))
-         end do
-c
          job = 0
+ccc         call prinf (' in msolve, nd = *', nd, k)
+ccc         call prin2 (' zeta_k = *', zeta_k, 2*k)
          call SCHUR_APPLY (zeta,ND,nbk,K,zeta_k,r,z,JOB,
      1                     SCHUR,k,wb,IPVTBF)
 c
@@ -2476,7 +2489,7 @@ c
 c
 c*********************************************
 c
-      SUBROUTINE SCHUR_APPLY (z,ND,nbk,K,zk,U,W,JOB,
+      SUBROUTINE SCHUR_APPLY (z, ND,nbk,K,zk,U,W,JOB,
      1                        SCHUR,LDS,BNEW,IPVTBF)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
       INTEGER *4 IPVTBF(k), nd(k)
@@ -2575,10 +2588,10 @@ ccc      call prin2(' w is *',w,norder)
 c
 c*********************************************
 c
-      SUBROUTINE SCHUR_FACTOR (z,ND,NMAX,K,zk,SCHUR,WB,IPVTBF)
+      SUBROUTINE SCHUR_FACTOR (z, ds, ND,NMAX,K,zk,SCHUR,WB,IPVTBF)
       IMPLICIT DOUBLE PRECISION (A-H,O-Z)
       INTEGER *4 IPVTBF(k), nd(k)
-      DIMENSION SCHUR(k,k),WB(k)
+      DIMENSION SCHUR(k,k),WB(k),ds(k)
       complex*16 zk(k), z(nmax), zdis
 C
 c
@@ -2630,19 +2643,21 @@ C
 C     I.e. form the Schur complement and corresponding rhs.
 C
       write (6,*) '** PRECONDITIONER  **'
+      call PRINF (' nd = *', nd, k)
+      call PRIN2 (' ds = *', ds, k)
 c
 ccc      NORDER = ND*K + K
       istart = nd(1)
       DO IBOD = 2,K
       DO KBOD = 1,K
          SUM1 = 0.0d0
-         DO i = 1,ND(kbod)
+         DO i = 1,ND(ibod)
             call POINT_VORTEX (z(istart+i), zk(kbod), circ)
             SUM1 = SUM1 + circ
          end do
          SCHUR(IBOD,KBOD) = -2.d0*SUM1
       end do
-      istart = istart+nd(kbod)
+      istart = istart+nd(ibod)
       end do
 C
 C     Next construct last row of Schur complement.
