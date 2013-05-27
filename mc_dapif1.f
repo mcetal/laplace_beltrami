@@ -796,8 +796,8 @@ CCC        ITIME = MRUN(0)
 	CALL DAASSI (EPS7,NAPB,NAT,NBOX,NBOXMX,IERR,L,LMX,NL,
      *            WKSP(NXA),WKSP(NYA),QA,WKSP(IBOX),WKSP(XB),
      *            WKSP(YB),WKSP(NBAT),WKSP(NPAR), WKSP(NCHI))
-        CALL PRINF('WKSP(NCHI) AFTER DAASSI IS*',WKSP(NCHI),NBOX)
-        call PRIN2('WKSP(XB) AFTER DAASSI IS*',WKSP(XB),10)
+ccc        CALL PRINF('WKSP(NCHI) AFTER DAASSI IS*',WKSP(NCHI),NBOX)
+ccc        call PRIN2('WKSP(XB) AFTER DAASSI IS*',WKSP(XB),10)
 	IF (IERR(1).NE.0) THEN
 	   CALL DAEOUT(IERR)
 	   IF (IERR(1).GT.1)  RETURN
@@ -808,7 +808,7 @@ C
 	CALL DACOMP (NAT,NBOX,NBOXOL,L,NL,WKSP(IBOX),WKSP(XB),
      *              WKSP(YB),WKSP(NBAT),WKSP(NPAR),
      *              WKSP(NCHI),WKSP(SHIFT))
-        CALL PRINF('WKSP(NCHI) AFTER COMPRESSION*',WKSP(NCHI),NBOX)
+ccc        CALL PRINF('WKSP(NCHI) AFTER COMPRESSION*',WKSP(NCHI),NBOX)
 C
 C ----- Move tables to free workspace ...
 C
@@ -891,7 +891,8 @@ C
 c
 c ----- Dump out tree for plotting
 c
-       call DUMP_TREE (NBOX, L, NL, WKSP(INDB), WKSP(XB), WKSP(NYB))
+       call DUMP_TREE (NBOX, L, NL, WKSP(INDB), WKSP(XB), WKSP(NYB),
+     1                 X0NEW, Y0NEW, RSCAL)
 C
 C ----- Allocate memory  for list of colleagues list
 C       and first interaction list
@@ -1691,7 +1692,8 @@ C
 C
 C**********************************************************************
 C
-	SUBROUTINE DUMP_TREE (NBOX, L, NL, INDB, XB, YB)
+	SUBROUTINE DUMP_TREE (NBOX, L, NL, INDB, XB, YB, X0NEW, Y0NEW, 
+     1                       RSCAL)
 C
 C**********************************************************************
 C
@@ -1706,6 +1708,8 @@ C   L           = number of levels
 C   INDB(I)     = 0 if i is a parent box, 1 if it is a childless box
 c   XB(I)       = x coord of centre of ith box
 c   YB(I)       = y coord of centre of ith box
+c   X0NEW,Y0NEW = original centre
+c   RSCAL       = length scaling
 C
 C**********************************************************************
         implicit real*8 (a-h,o-z)
@@ -1715,14 +1719,18 @@ c
         open (unit = 25, file='tree.m')
         WRITE(25,*) 'xyl = ['
 c
-        write (25,*) 0., 0., BOXSIZ
-        do ILEV = 1, L
+        write (25,*) X0NEW, Y0NEW, BOXSIZ/RSCAL
+        write (6,*) 'NBOX = ', nbox
+        do ILEV = 1, L-1
            write (6,*) 'ILEV = ', ILEV
+              write (6,*) ' boxes ',NL(ILEV), NL(ILEV+1)-1
            do IBOX = NL(ILEV), NL(ILEV+1)-1
 	       RL2 = 2.0**ILEV
 	       D = (1.d0/RL2) *BOXSIZ
+	       x = xb(IBOX)/RSCAL + X0NEW
+               y = yb(IBOX)/RSCAL + Y0NEW
                if (INDB(IBOX).eq.1) then 
-                  write(25,1400) xb(IBOX), yb(ibox), D
+                  write(25,1400) x, y, D/RSCAL
                end if
            end do
         end do
