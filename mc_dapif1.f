@@ -1729,9 +1729,9 @@ c
 	       D = (1.d0/RL2) *BOXSIZ
 	       x = xb(IBOX)/RSCAL + X0NEW
                y = yb(IBOX)/RSCAL + Y0NEW
-               if (INDB(IBOX).eq.1) then 
+ccc               if (INDB(IBOX).eq.1) then 
                   write(25,1400) x, y, D/RSCAL
-               end if
+ccc               end if
            end do
         end do
         WRITE(25,*) '];'

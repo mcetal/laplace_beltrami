@@ -98,8 +98,8 @@ c   if iflag = 1, read in from input.data
 c   if iflag = 2, read in from input_gridhole.data 
 c   if iflag = 3, construct grid of holes
          call PRINI (6,13)
-         iflag = 1
-         if ((iflag.eq.1).or.(iflag.eq.2)) then  
+         iflag = 2
+         if ((iflag.eq.2).or.(iflag.eq.2)) then  
             call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
      1                      th_k, phi_k, nvort, x1_vort, x2_vort, 
      2                      x3_vort, vort_k, gamma_tot, r0, zeta_k, 
@@ -1363,7 +1363,7 @@ c
          nnn = nbk
          call DAPIF2 (iout, iflag7, nnn, napb, ninire, mex, ierr, 
      &                inform, tol, eps7, x_zeta, y_zeta, qa, poten,  
-     &                cfield, wksp, nsp, CLOSE, 0)
+     &                cfield, wksp, nsp, CLOSE, 1)
          call PRINI (6, 13)
 ccc         call PRIN2 (' qa = *', qa, 2*nnn)
 ccc         call PRIN2 (' cfielf = *', cfield, 2*nnn)
@@ -1412,7 +1412,7 @@ c Constraints for multiple log but with same-valued streamlines
 ccc         call PRIN2 (' poten = *', poten, n)
 ccc         call PRIN2 (' TIME FOR FMM  = *',tend-tbeg,1)
 ccc         call PRIN2 (' cfield = *', cfield, 2*n)
-ccc       stop
+       stop
 c
       return
       end
