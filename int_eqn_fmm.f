@@ -13,7 +13,7 @@ c
 c
 c     ------------------------------------------------------------------
       implicit real*8 (a-h, o-z)
-      parameter (kmax = 15, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 410, npmax = 3000, nmax = kmax*npmax)
 c
 c Geometry of holes
       dimension ak(kmax), bk(kmax), th_k(kmax), phi_k(kmax), cx(kmax),
@@ -97,6 +97,7 @@ c Initial Hole Geometry is given by reading in data
 c   if iflag = 1, read in from input.data
 c   if iflag = 2, read in from input_gridhole.data 
 c   if iflag = 3, construct grid of holes
+         call PRINI (6,13)
          iflag = 1
          if ((iflag.eq.1).or.(iflag.eq.2)) then  
             call READ_DATA (k, nd, nbk, nth, nphi, ak, bk, cx, cy, cz, 
@@ -188,6 +189,7 @@ c---------------
 c
          eye = dcmplx(0.d0,1.d0)
 c
+         call PRINF (' iflag = *', iflag, 1)
          if (iflag.eq.1) then
             open (unit = 12, file = 'input.data')
            else
@@ -197,6 +199,9 @@ c
          read (12,*) k, nd, nvort
          nbk = k*nd
          call PRINF (' nbk = *', nbk, 1)
+         call PRINF (' nd = *', nd, 1)
+         call PRINF (' k = *', k, 1)
+         call PRINF (' nvort = *', nvort, 1)
          read(12,*) nth, nphi
          do kbod = 1, k
             read(12,*) ak(kbod), bk(kbod), th_k(kbod), phi_k(kbod)
@@ -866,11 +871,14 @@ ccc         call prin2 (' diag = *', diag, nbk)
          call RS_3D_PLOT (x1_vort,x2_vort,x3_vort,nvort, 1, 23)
          close (22)
          close (23)
-         open (unit = 11, file = 'stereo_geo.m')
+         open (unit = 11, file = 'geo_stereo.m')
+         open (unit = 12, file = 'geo_stereo_dot.m')
          do kbod = 1, k
             call RSCPLOT (zeta((kbod-1)*nd+1), nd, kbod, 11)
+            call RSCPLOT_DOT (zeta((kbod-1)*nd+1), nd, kbod, 12)
          end do
          close (11)
+         close (12)
 c
       return
       end      
@@ -1355,7 +1363,7 @@ c
          nnn = nbk
          call DAPIF2 (iout, iflag7, nnn, napb, ninire, mex, ierr, 
      &                inform, tol, eps7, x_zeta, y_zeta, qa, poten,  
-     &                cfield, wksp, nsp, CLOSE, 1)
+     &                cfield, wksp, nsp, CLOSE, 0)
          call PRINI (6, 13)
 ccc         call PRIN2 (' qa = *', qa, 2*nnn)
 ccc         call PRIN2 (' cfielf = *', cfield, 2*nnn)
@@ -1404,7 +1412,7 @@ c Constraints for multiple log but with same-valued streamlines
 ccc         call PRIN2 (' poten = *', poten, n)
 ccc         call PRIN2 (' TIME FOR FMM  = *',tend-tbeg,1)
 ccc         call PRIN2 (' cfield = *', cfield, 2*n)
-       stop
+ccc       stop
 c
       return
       end
@@ -2246,7 +2254,7 @@ c
 c
       DIMENSION R(N), Z(N)
 c
-      parameter (kmax = 15, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 410, npmax = 3000, nmax = kmax*npmax)
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)
@@ -2476,7 +2484,7 @@ c  work.
 c
       implicit double precision (a-h,o-z)
       dimension xx(n), yy(n)
-      parameter (kmax = 15, npmax = 512, nmax = kmax*npmax)
+      parameter (kmax = 410, npmax = 3000, nmax = kmax*npmax)
       parameter (nth_max = 1000, nphi_max = 1000, 
      1          ng_max = nth_max*nphi_max)
       parameter (nsp = 20*nmax + 20*ng_max)

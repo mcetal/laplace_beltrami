@@ -156,6 +156,39 @@ ccc      write(iw, *) ' plot(x)'
       RETURN
       end
 c
+        SUBROUTINE RSCPLOT_DOT(Z,N,NBOD,IW)
+        IMPLICIT REAL *8 (A-H,O-Z)
+        DIMENSION V(4)
+        complex*16 z(n)
+C
+C        THIS SUBROUTINE PLOTS THE CURVE SPECIFIED BY ITS NODES
+C        z = x + Iy (CONCEPTUALLY, THE CURVE CONNECTS THE POINT (X(1),Y(1))
+C        WITH THE POINT (X(N),Y(N)). 
+C
+C  INPUT PARAMETERS:
+C   X,Y - THE COORDINATES OF THE CURVE TO PLOT
+C   N - THE NUMBER OF ELEMENTS IN ARAYS X,Y.
+C   IW - THE FORTRAN UNIT NUMBER ON WHICH THE OUTPUT DATA SET IS WRITTEN
+C
+C  OUTPUT PARAMETERS: NONE
+C
+C
+      WRITE(IW,*) 'x = ['
+      WRITE(IW,1400) (z(I),I=1,N)
+ccc      write (iw,1400) x(1),y(1)
+      WRITE(IW,*) '];'
+1300  FORMAT(D15.6)
+1400  FORMAT(2D15.6)
+      write(iw,*) ' xx = x(:,1);'
+      write(iw,*) ' yy = x(:,2);'
+      write(iw, *) ' plot(xx,yy,''r.'',''MarkerSize'',0.5)'
+ccc      write(iw, *) ' plot(xx,yy,'' . '' )'
+      write(iw,*) 'axis equal'
+ccc      write(iw, *) ' plot(x)'
+      IF (NBOD.eq.1) write(iw,*) ' hold on'
+      RETURN
+      end
+c
         SUBROUTINE RSC_STAR_PLOT(Z,N,IW)
         IMPLICIT REAL *8 (A-H,O-Z)
         DIMENSION V(4)
