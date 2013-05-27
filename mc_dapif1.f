@@ -456,7 +456,8 @@ C
 C**********************************************************************
 C
 	SUBROUTINE DAPIF2 (IOUT,IFLAG7,NAT,NAPB,NINIRE,MEX,IERR,INFORM,
-     *                    TOL,EPS7,XA,YA,QA,POTEN,FIELD,WKSP,NSP,CLOSE)
+     *                    TOL,EPS7,XA,YA,QA,POTEN,FIELD,WKSP,NSP,CLOSE,
+     *                    IPLOT)
 C
 C**********************************************************************
 C
@@ -464,7 +465,8 @@ C   *** INFORMATION:
 C
 C       Fast multipole method.
 C
-C
+C  MODIFIED BY MCK TO DUMP OUT TREE FOR PLOTTING
+c
 C       A detailed descritpion is given in:
 C       `A Fast Adaptive Algorithm for Particle Simulation'.
 C       J. Carrier, L. Greengard, V. Rokhlin.
@@ -546,6 +548,8 @@ C                EXTERNAL in the calling program.
 C   XA(i)      = first coordinate of i-th particle
 C   YA(i)      = second coordinate of i-th particle
 C   QA(i)      = charge of i-th particle
+c   IPLOT      = 0 - do not dump out tree for plotting
+c              = 1 - dump out tree for plotting
 C   _____________________________________________________________
 C   |-----------------------------------------------------------|
 C   |    WARNING:                                               |
@@ -884,6 +888,10 @@ C ----- Form list of particles for childless boxes
 C
 	CALL DAIJAT (NAPB,NAT,NBOX,L,NL,WKSP(IBOX),WKSP(NNBAT),
      *               WKSP(INDB),WKSP(IAT),WKSP(JAT))
+c
+c ----- Dump out tree for plotting
+c
+       call DUMP_TREE (NBOX, L, NL, WKSP(INDB), WKSP(XB), WKSP(NYB))
 C
 C ----- Allocate memory  for list of colleagues list
 C       and first interaction list
@@ -1680,3 +1688,47 @@ CCC        CALL PRINF(' JAT=*',JAT,NAT+NBOX+1)
 	RETURN
 	END
 C
+C
+C**********************************************************************
+C
+	SUBROUTINE DUMP_TREE (NBOX, L, NL, INDB, XB, YB)
+C
+C**********************************************************************
+C
+C   *** DESCRIPTION :
+C
+C       DUMP OUT TREE FOR PLOTTING - don't worry about scaling yet
+C
+C   *** INPUT PARAMETERS :
+C
+C   NBOX        = number of boxes
+C   L           = number of levels
+C   INDB(I)     = 0 if i is a parent box, 1 if it is a childless box
+c   XB(I)       = x coord of centre of ith box
+c   YB(I)       = y coord of centre of ith box
+C
+C**********************************************************************
+        implicit real*8 (a-h,o-z)
+        dimension INDB(*), XB(*), YB(*), NL(*)
+	 DATA BOXSIZ/128.0/
+c
+        open (unit = 25, file='tree.m')
+        WRITE(25,*) 'xyl = ['
+c
+        write (25,*) 0., 0., BOXSIZ
+        do ILEV = 1, L
+           write (6,*) 'ILEV = ', ILEV
+           do IBOX = NL(ILEV), NL(ILEV+1)-1
+	       RL2 = 2.0**ILEV
+	       D = (1.d0/RL2) *BOXSIZ
+               if (INDB(IBOX).eq.1) then 
+                  write(25,1400) xb(IBOX), yb(ibox), D
+               end if
+           end do
+        end do
+        WRITE(25,*) '];'
+        close(25)
+1400  FORMAT(3D15.6)
+c
+      return
+      end

@@ -1355,7 +1355,7 @@ c
          nnn = nbk
          call DAPIF2 (iout, iflag7, nnn, napb, ninire, mex, ierr, 
      &                inform, tol, eps7, x_zeta, y_zeta, qa, poten,  
-     &                cfield, wksp, nsp, CLOSE)
+     &                cfield, wksp, nsp, CLOSE, 1)
          call PRINI (6, 13)
 ccc         call PRIN2 (' qa = *', qa, 2*nnn)
 ccc         call PRIN2 (' cfielf = *', cfield, 2*nnn)
@@ -1404,6 +1404,7 @@ c Constraints for multiple log but with same-valued streamlines
 ccc         call PRIN2 (' poten = *', poten, n)
 ccc         call PRIN2 (' TIME FOR FMM  = *',tend-tbeg,1)
 ccc         call PRIN2 (' cfield = *', cfield, 2*n)
+       stop
 c
       return
       end
@@ -1526,7 +1527,7 @@ c
          nnn = nbk
          call DAPIF2 (iout, iflag7, nnn, napb, ninire, mex, ierr, 
      &                inform, tol, eps7, x_zeta, y_zeta, qa, poten,  
-     &                cfield, wksp, nsp, CLOSE)
+     &                cfield, wksp, nsp, CLOSE, 0)
          call PRINI (6, 13)
 ccc         call PRIN2 (' qa = *', qa, 2*nnn)
 ccc         call PRIN2 (' cfielf = *', cfield, 2*nnn)
@@ -1887,7 +1888,7 @@ ccc         nnn = nbk
 ccc         nnn = nbk+100
          call DAPIF2 (iout, iflag7, nnn, napb, ninire, mex, ierr, 
      &                inform, tol, eps7, x_zeta, y_zeta, qa, poten,  
-     &                cfield, wksp, nsp, CLOSE)
+     &                cfield, wksp, nsp, CLOSE, 0)
          call PRINI (6, 13)
 ccc         call PRIN2 (' cfield = *', cfield, 2*nnn)
          call PRINF (' Number of Levels = *', inform(3), 1)
@@ -2021,7 +2022,7 @@ ccc         nnn = nbk
 ccc         nnn = nbk+100
          call DAPIF2 (iout, iflag7, nnn, napb, ninire, mex, ierr, 
      &                inform, tol, eps7, x_zeta, y_zeta, qa, poten,  
-     &                cfield, wksp, nsp, CLOSE)
+     &                cfield, wksp, nsp, CLOSE, 0)
          call PRINI (6, 13)
 ccc         call PRIN2 (' cfield = *', cfield, 2*nnn)
          call PRINF (' Number of Levels = *', inform(3), 1)
